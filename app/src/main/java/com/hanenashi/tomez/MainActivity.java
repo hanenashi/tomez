@@ -80,10 +80,6 @@ public class MainActivity extends Activity {
     private static final int OLD_THEME_BLACK = 32;
     private static final int THEME_GREY = 33;
     private static final int THEME_GREEN = 34;
-    private static final int CURSOR_THIN = 40;
-    private static final int CURSOR_THICK = 41;
-    private static final int CURSOR_BLOCK = 42;
-    private static final int CURSOR_UNDERLINE = 43;
     private static final int GITHUB = 50;
     private static final int MIN_SLIDER_SIZE = 10;
     private static final int MAX_SLIDER_SIZE = 40;
@@ -92,7 +88,7 @@ public class MainActivity extends Activity {
 
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private TerminalEditText editor;
+    private EditText editor;
     private TextView readView;
     private ScrollView readScroll;
     private TextView title;
@@ -125,6 +121,7 @@ public class MainActivity extends Activity {
         preferences = getSharedPreferences("appearance", MODE_PRIVATE);
         if (preferences.getInt("theme", THEME_LIGHT) == OLD_THEME_BLACK)
             preferences.edit().putInt("theme", THEME_DARK).apply();
+        if (preferences.contains("cursor")) preferences.edit().remove("cursor").apply();
         draftFile = new AtomicFile(new File(getFilesDir(), "unsaved-draft"));
         buildUi();
         restoreDraft();
@@ -193,7 +190,7 @@ public class MainActivity extends Activity {
         readScroll.addView(readView);
         root.addView(readScroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        editor = new TerminalEditText(this);
+        editor = new EditText(this);
         editor.setGravity(Gravity.TOP | Gravity.START);
         editor.setPadding(dp(16), dp(12), dp(16), dp(16));
         editor.setBackgroundColor(Color.TRANSPARENT);
@@ -202,8 +199,6 @@ public class MainActivity extends Activity {
                 | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         editor.setHorizontallyScrolling(false);
         editor.setHint("Start typing…");
-        editor.setTerminalCursorStyle(preferences.getInt("cursor", CURSOR_THIN));
-        editor.setTerminalCursorEnabled(false);
         editor.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
@@ -254,21 +249,10 @@ public class MainActivity extends Activity {
         themes.add(200, THEME_GREEN, 3, "Green (Matrix)").setCheckable(true)
                 .setChecked(currentTheme == THEME_GREEN);
 
-        SubMenu cursors = menu.addSubMenu(0, 0, 9, "Cursor");
-        int currentCursor = preferences.getInt("cursor", CURSOR_THIN);
-        cursors.add(400, CURSOR_THIN, 0, "Thin bar").setCheckable(true)
-                .setChecked(currentCursor == CURSOR_THIN);
-        cursors.add(400, CURSOR_THICK, 1, "Thick bar").setCheckable(true)
-                .setChecked(currentCursor == CURSOR_THICK);
-        cursors.add(400, CURSOR_BLOCK, 2, "Block").setCheckable(true)
-                .setChecked(currentCursor == CURSOR_BLOCK);
-        cursors.add(400, CURSOR_UNDERLINE, 3, "Underline").setCheckable(true)
-                .setChecked(currentCursor == CURSOR_UNDERLINE);
-
-        menu.add(0, FULLSCREEN, 10, "Fullscreen").setCheckable(true)
+        menu.add(0, FULLSCREEN, 9, "Fullscreen").setCheckable(true)
                 .setChecked(preferences.getBoolean("fullscreen", false));
-        menu.add(0, 0, 11, "tomez " + BuildConfig.VERSION_NAME).setEnabled(false);
-        menu.add(0, GITHUB, 12, "github.com/hanenashi/tomez ↗");
+        menu.add(0, 0, 10, "tomez " + BuildConfig.VERSION_NAME).setEnabled(false);
+        menu.add(0, GITHUB, 11, "github.com/hanenashi/tomez ↗");
 
         popup.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
@@ -309,8 +293,6 @@ public class MainActivity extends Activity {
                     else if (id == THEME_LIGHT || id == THEME_DARK
                             || id == THEME_GREY || id == THEME_GREEN)
                         preferences.edit().putInt("theme", id).apply();
-                    else if (id >= CURSOR_THIN && id <= CURSOR_UNDERLINE)
-                        preferences.edit().putInt("cursor", id).apply();
                     else return false;
                     applyAppearance();
                     return true;
@@ -462,8 +444,6 @@ public class MainActivity extends Activity {
         int size = preferences.getInt("size", 18);
         editor.setTextSize(size);
         readView.setTextSize(size);
-        editor.setTerminalCursorColor(accent);
-        editor.setTerminalCursorStyle(preferences.getInt("cursor", CURSOR_THIN));
         menuButton.setTextColor(foreground);
         menuButton.setBackgroundTintList(ColorStateList.valueOf(surface));
         applySystemUi();
@@ -764,7 +744,6 @@ public class MainActivity extends Activity {
         editMode = editing;
         int generation = ++modeGeneration;
         modeLabel.setText(editing ? "EDIT" : "READ");
-        editor.setTerminalCursorEnabled(editing);
         if (editing) {
             editor.setVisibility(View.VISIBLE);
             readScroll.setVisibility(View.GONE);

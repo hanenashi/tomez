@@ -11,7 +11,7 @@ A small native Android plaintext editor written in Java with Android Views and n
 - System sans, system serif, and monospace fonts; a text-size slider with custom entry; light, dark, grey, and green themes
 - A fullscreen toggle; appearance and fullscreen choices saved across launches
 - Read and Edit modes; Read mode scrolls without opening the keyboard
-- A blinking Edit cursor with thin bar, thick bar, block, and underline presets
+- Android's native blinking cursor in Edit mode
 - The document path in the title for local files; the provider URI for files without a filesystem path
 - Version and GitHub link at the bottom of the gear menu
 - An internal recovery draft for unsaved edits, written after a short pause in typing and when the app goes into the background
