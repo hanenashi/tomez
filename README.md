@@ -10,12 +10,15 @@ A small native Android plaintext editor written in Java with Android Views and n
 - UTF-8 text, including Unicode and UTF-8 files with a byte-order mark
 - System sans, system serif, and monospace fonts; a text-size slider with custom entry; light, dark, grey, and green themes
 - A fullscreen toggle; appearance and fullscreen choices saved across launches
-- Version and GitHub link in the bottom bar
+- Read and Edit modes; Read mode scrolls without opening the keyboard
+- A blinking Edit cursor with thin bar, thick bar, block, and underline presets
+- The document path in the title for local files; the provider URI for files without a filesystem path
+- Version and GitHub link at the bottom of the gear menu
 - An internal recovery draft for unsaved edits, written after a short pause in typing and when the app goes into the background
 
 The editor accepts files up to 1 MiB. Files that are not valid UTF-8 are rejected without changing the open document. Save As makes the new file the current document. The recovery draft is local to the app and is cleared after a successful save or explicit discard.
 
-The text-size slider covers 10–40 sp; the number field accepts 8–96 sp. Fullscreen hides Android's status and navigation bars. Swipe from an edge to reveal them briefly, or turn Fullscreen off in the gear menu.
+Opening a file enters Read mode. Choose **Mode → Edit** to type, then **Mode → Read** to scroll without a keyboard. New starts in Edit mode. Tap the title to see the complete file location when it does not fit in the toolbar. The text-size slider covers 10–40 sp; the number field accepts 8–96 sp. Fullscreen hides Android's status and navigation bars. Swipe from an edge to reveal them briefly, or turn Fullscreen off in the gear menu.
 
 ## Build
 

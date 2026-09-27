@@ -16,10 +16,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.OpenableColumns;
+import android.provider.DocumentsContract;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
 import android.text.TextUtils;
+import android.text.Layout;
 import android.util.AtomicFile;
 import android.view.Gravity;
 import android.view.Menu;
@@ -33,8 +35,10 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.SeekBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.view.inputmethod.InputMethodManager;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -64,6 +68,8 @@ public class MainActivity extends Activity {
     private static final int SAVE = 3;
     private static final int SAVE_AS = 4;
     private static final int CLOSE = 5;
+    private static final int MODE_READ = 6;
+    private static final int MODE_EDIT = 7;
     private static final int FONT_SANS = 10;
     private static final int FONT_SERIF = 11;
     private static final int FONT_MONO = 12;
@@ -74,6 +80,11 @@ public class MainActivity extends Activity {
     private static final int OLD_THEME_BLACK = 32;
     private static final int THEME_GREY = 33;
     private static final int THEME_GREEN = 34;
+    private static final int CURSOR_THIN = 40;
+    private static final int CURSOR_THICK = 41;
+    private static final int CURSOR_BLOCK = 42;
+    private static final int CURSOR_UNDERLINE = 43;
+    private static final int GITHUB = 50;
     private static final int MIN_SLIDER_SIZE = 10;
     private static final int MAX_SLIDER_SIZE = 40;
     private static final int MIN_CUSTOM_SIZE = 8;
@@ -81,25 +92,27 @@ public class MainActivity extends Activity {
 
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private EditText editor;
+    private TerminalEditText editor;
+    private TextView readView;
+    private ScrollView readScroll;
     private TextView title;
+    private TextView modeLabel;
     private Button menuButton;
-    private TextView versionLabel;
-    private TextView githubLink;
     private View toolbar;
     private View divider;
-    private View footer;
-    private View footerDivider;
     private LinearLayout root;
     private SharedPreferences preferences;
     private AtomicFile draftFile;
     private Uri documentUri;
     private String documentName = "Untitled";
+    private String documentPath = "Untitled";
     private String savedText = "";
     private boolean hasBom;
     private boolean dirty;
     private boolean suppressChanges;
     private boolean busy;
+    private boolean editMode;
+    private int modeGeneration;
     private Runnable afterSave;
     private final Runnable updateDraft = () -> {
         if (dirty) saveDraft();
@@ -117,6 +130,7 @@ public class MainActivity extends Activity {
         restoreDraft();
         applyAppearance();
         updateTitle();
+        setEditMode(false);
     }
 
     private void buildUi() {
@@ -142,9 +156,20 @@ public class MainActivity extends Activity {
 
         title = new TextView(this);
         title.setSingleLine(true);
-        title.setEllipsize(TextUtils.TruncateAt.END);
+        title.setEllipsize(TextUtils.TruncateAt.MIDDLE);
         title.setTextSize(18);
+        title.setOnClickListener(view -> new AlertDialog.Builder(themedContext())
+                .setTitle("File location")
+                .setMessage(documentPath)
+                .setPositiveButton("OK", null)
+                .show());
         toolbarRow.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1));
+
+        modeLabel = new TextView(this);
+        modeLabel.setText("READ");
+        modeLabel.setTextSize(11);
+        modeLabel.setGravity(Gravity.CENTER);
+        toolbarRow.addView(modeLabel, new LinearLayout.LayoutParams(dp(48), dp(48)));
 
         menuButton = new Button(this);
         menuButton.setText("⚙");
@@ -158,7 +183,17 @@ public class MainActivity extends Activity {
         divider = new View(this);
         root.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
 
-        editor = new EditText(this);
+        readScroll = new ScrollView(this);
+        readScroll.setFillViewport(true);
+        readView = new TextView(this);
+        readView.setGravity(Gravity.TOP | Gravity.START);
+        readView.setPadding(dp(16), dp(12), dp(16), dp(16));
+        readView.setTextIsSelectable(true);
+        readView.setHint("Start typing…");
+        readScroll.addView(readView);
+        root.addView(readScroll, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        editor = new TerminalEditText(this);
         editor.setGravity(Gravity.TOP | Gravity.START);
         editor.setPadding(dp(16), dp(12), dp(16), dp(16));
         editor.setBackgroundColor(Color.TRANSPARENT);
@@ -167,6 +202,8 @@ public class MainActivity extends Activity {
                 | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         editor.setHorizontallyScrolling(false);
         editor.setHint("Start typing…");
+        editor.setTerminalCursorStyle(preferences.getInt("cursor", CURSOR_THIN));
+        editor.setTerminalCursorEnabled(false);
         editor.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
@@ -178,40 +215,24 @@ public class MainActivity extends Activity {
                 mainHandler.postDelayed(updateDraft, DRAFT_DELAY_MS);
             }
         });
+        editor.setVisibility(View.GONE);
         root.addView(editor, new LinearLayout.LayoutParams(-1, 0, 1));
-
-        footerDivider = new View(this);
-        root.addView(footerDivider, new LinearLayout.LayoutParams(-1, dp(1)));
-        LinearLayout footerRow = new LinearLayout(this);
-        footerRow.setGravity(Gravity.CENTER_VERTICAL);
-        footerRow.setPadding(dp(16), 0, dp(16), 0);
-        footer = footerRow;
-        versionLabel = new TextView(this);
-        versionLabel.setText("tomez " + BuildConfig.VERSION_NAME);
-        versionLabel.setTextSize(12);
-        versionLabel.setGravity(Gravity.CENTER_VERTICAL);
-        footerRow.addView(versionLabel, new LinearLayout.LayoutParams(0, dp(32), 1));
-        githubLink = new TextView(this);
-        githubLink.setText("GitHub ↗");
-        githubLink.setTextSize(12);
-        githubLink.setGravity(Gravity.CENTER_VERTICAL);
-        githubLink.setContentDescription("Open tomez on GitHub");
-        githubLink.setOnClickListener(view -> openGithub());
-        footerRow.addView(githubLink, new LinearLayout.LayoutParams(-2, dp(32)));
-        root.addView(footerRow);
         setContentView(root);
     }
 
     private void showMenu(View anchor) {
         PopupMenu popup = new PopupMenu(themedContext(), anchor);
         Menu menu = popup.getMenu();
-        menu.add(0, NEW, 0, "New");
-        menu.add(0, OPEN, 1, "Open…");
-        menu.add(0, SAVE, 2, "Save");
-        menu.add(0, SAVE_AS, 3, "Save As…");
-        menu.add(0, CLOSE, 4, "Close");
+        SubMenu modes = menu.addSubMenu(0, 0, 0, "Mode");
+        modes.add(300, MODE_READ, 0, "Read").setCheckable(true).setChecked(!editMode);
+        modes.add(300, MODE_EDIT, 1, "Edit").setCheckable(true).setChecked(editMode);
+        menu.add(0, NEW, 1, "New");
+        menu.add(0, OPEN, 2, "Open…");
+        menu.add(0, SAVE, 3, "Save");
+        menu.add(0, SAVE_AS, 4, "Save As…");
+        menu.add(0, CLOSE, 5, "Close");
 
-        SubMenu fonts = menu.addSubMenu(0, 0, 5, "Font");
+        SubMenu fonts = menu.addSubMenu(0, 0, 6, "Font");
         int currentFont = preferences.getInt("font", FONT_SANS);
         fonts.add(100, FONT_SANS, 0, "System sans").setCheckable(true)
                 .setChecked(currentFont == FONT_SANS);
@@ -220,9 +241,9 @@ public class MainActivity extends Activity {
         fonts.add(100, FONT_MONO, 2, "Monospace").setCheckable(true)
                 .setChecked(currentFont == FONT_MONO);
 
-        menu.add(0, SIZE, 6, "Text size…");
+        menu.add(0, SIZE, 7, "Text size…");
 
-        SubMenu themes = menu.addSubMenu(0, 0, 7, "Theme");
+        SubMenu themes = menu.addSubMenu(0, 0, 8, "Theme");
         int currentTheme = preferences.getInt("theme", THEME_LIGHT);
         themes.add(200, THEME_LIGHT, 0, "Light").setCheckable(true)
                 .setChecked(currentTheme == THEME_LIGHT);
@@ -233,8 +254,21 @@ public class MainActivity extends Activity {
         themes.add(200, THEME_GREEN, 3, "Green (Matrix)").setCheckable(true)
                 .setChecked(currentTheme == THEME_GREEN);
 
-        menu.add(0, FULLSCREEN, 8, "Fullscreen").setCheckable(true)
+        SubMenu cursors = menu.addSubMenu(0, 0, 9, "Cursor");
+        int currentCursor = preferences.getInt("cursor", CURSOR_THIN);
+        cursors.add(400, CURSOR_THIN, 0, "Thin bar").setCheckable(true)
+                .setChecked(currentCursor == CURSOR_THIN);
+        cursors.add(400, CURSOR_THICK, 1, "Thick bar").setCheckable(true)
+                .setChecked(currentCursor == CURSOR_THICK);
+        cursors.add(400, CURSOR_BLOCK, 2, "Block").setCheckable(true)
+                .setChecked(currentCursor == CURSOR_BLOCK);
+        cursors.add(400, CURSOR_UNDERLINE, 3, "Underline").setCheckable(true)
+                .setChecked(currentCursor == CURSOR_UNDERLINE);
+
+        menu.add(0, FULLSCREEN, 10, "Fullscreen").setCheckable(true)
                 .setChecked(preferences.getBoolean("fullscreen", false));
+        menu.add(0, 0, 11, "tomez " + BuildConfig.VERSION_NAME).setEnabled(false);
+        menu.add(0, GITHUB, 12, "github.com/hanenashi/tomez ↗");
 
         popup.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
@@ -255,10 +289,19 @@ public class MainActivity extends Activity {
                 case SIZE:
                     showTextSizeDialog();
                     return true;
+                case MODE_READ:
+                    setEditMode(false);
+                    return true;
+                case MODE_EDIT:
+                    setEditMode(true);
+                    return true;
                 case FULLSCREEN:
                     preferences.edit().putBoolean("fullscreen",
                             !preferences.getBoolean("fullscreen", false)).apply();
                     applySystemUi();
+                    return true;
+                case GITHUB:
+                    openGithub();
                     return true;
                 default:
                     if (id >= FONT_SANS && id <= FONT_MONO)
@@ -266,6 +309,8 @@ public class MainActivity extends Activity {
                     else if (id == THEME_LIGHT || id == THEME_DARK
                             || id == THEME_GREY || id == THEME_GREEN)
                         preferences.edit().putInt("theme", id).apply();
+                    else if (id >= CURSOR_THIN && id <= CURSOR_UNDERLINE)
+                        preferences.edit().putInt("cursor", id).apply();
                     else return false;
                     applyAppearance();
                     return true;
@@ -400,19 +445,25 @@ public class MainActivity extends Activity {
         }
         root.setBackgroundColor(background);
         toolbar.setBackgroundColor(surface);
-        footer.setBackgroundColor(surface);
         divider.setBackgroundColor(line);
-        footerDivider.setBackgroundColor(line);
         title.setTextColor(foreground);
+        modeLabel.setTextColor(muted);
         editor.setTextColor(foreground);
         editor.setHintTextColor(muted);
         editor.setHighlightColor(Color.argb(90, Color.red(accent), Color.green(accent), Color.blue(accent)));
-        versionLabel.setTextColor(muted);
-        githubLink.setTextColor(accent);
+        readView.setTextColor(foreground);
+        readView.setHintTextColor(muted);
+        readView.setHighlightColor(Color.argb(90, Color.red(accent), Color.green(accent), Color.blue(accent)));
         int font = preferences.getInt("font", FONT_SANS);
-        editor.setTypeface(font == FONT_SERIF ? Typeface.SERIF
-                : font == FONT_MONO ? Typeface.MONOSPACE : Typeface.SANS_SERIF);
-        editor.setTextSize(preferences.getInt("size", 18));
+        Typeface typeface = font == FONT_SERIF ? Typeface.SERIF
+                : font == FONT_MONO ? Typeface.MONOSPACE : Typeface.SANS_SERIF;
+        editor.setTypeface(typeface);
+        readView.setTypeface(typeface);
+        int size = preferences.getInt("size", 18);
+        editor.setTextSize(size);
+        readView.setTextSize(size);
+        editor.setTerminalCursorColor(accent);
+        editor.setTerminalCursorStyle(preferences.getInt("cursor", CURSOR_THIN));
         menuButton.setTextColor(foreground);
         menuButton.setBackgroundTintList(ColorStateList.valueOf(surface));
         applySystemUi();
@@ -490,9 +541,11 @@ public class MainActivity extends Activity {
     private void newDocument() {
         documentUri = null;
         documentName = "Untitled";
+        documentPath = "Untitled";
         hasBom = false;
         setEditorText("");
         clearDraft();
+        setEditMode(true);
     }
 
     private void launchOpen() {
@@ -548,9 +601,11 @@ public class MainActivity extends Activity {
                     setBusy(false);
                     documentUri = uri;
                     documentName = queryName(uri, "Untitled");
+                    documentPath = queryPath(uri, documentName);
                     hasBom = opened.hasBom;
                     setEditorText(opened.text);
                     clearDraft();
+                    setEditMode(false);
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
@@ -628,6 +683,7 @@ public class MainActivity extends Activity {
                 setBusy(false);
                 documentUri = uri;
                 documentName = queryName(uri, "Untitled.txt");
+                documentPath = queryPath(uri, documentName);
                 savedText = text;
                 dirty = !savedText.contentEquals(editor.getText());
                 updateTitle();
@@ -649,11 +705,34 @@ public class MainActivity extends Activity {
         return fallback;
     }
 
+    private String queryPath(Uri uri, String name) {
+        if ("com.android.externalstorage.documents".equals(uri.getAuthority())) {
+            try {
+                String id = DocumentsContract.getDocumentId(uri);
+                int colon = id.indexOf(':');
+                if (colon > 0 && colon < id.length() - 1) {
+                    String volume = id.substring(0, colon);
+                    String relative = id.substring(colon + 1);
+                    String root = "primary".equalsIgnoreCase(volume)
+                            ? "/storage/emulated/0" : "/storage/" + volume;
+                    return root + "/" + relative;
+                }
+            } catch (IllegalArgumentException ignored) { }
+        }
+        if ("file".equals(uri.getScheme()) && uri.getPath() != null)
+            return uri.getPath();
+        // Other document providers can use opaque IDs rather than filesystem paths.
+        return name + " · " + uri;
+    }
+
     private void setEditorText(String text) {
         suppressChanges = true;
         editor.setText(text);
         editor.setSelection(0);
+        editor.scrollTo(0, 0);
         suppressChanges = false;
+        readView.setText(text);
+        readScroll.scrollTo(0, 0);
         savedText = text;
         dirty = false;
         updateTitle();
@@ -666,8 +745,54 @@ public class MainActivity extends Activity {
     }
 
     private void updateTitle() {
-        title.setText(documentName + (dirty ? " •" : ""));
-        title.setContentDescription(documentName + (dirty ? ", unsaved changes" : ""));
+        title.setText(documentPath + (dirty ? " •" : ""));
+        title.setContentDescription(documentPath + (dirty ? ", unsaved changes" : ""));
+    }
+
+    private void setEditMode(boolean editing) {
+        if (editMode == editing && editor.getVisibility() == (editing ? View.VISIBLE : View.GONE))
+            return;
+        int scrollY = editMode ? editor.getScrollY() : readScroll.getScrollY();
+        int visibleOffset = editor.getSelectionStart();
+        if (editing) {
+            Layout layout = readView.getLayout();
+            if (layout != null) {
+                int line = layout.getLineForVertical(scrollY + dp(12));
+                visibleOffset = Math.min(editor.length(), layout.getLineStart(line));
+            }
+        }
+        editMode = editing;
+        int generation = ++modeGeneration;
+        modeLabel.setText(editing ? "EDIT" : "READ");
+        editor.setTerminalCursorEnabled(editing);
+        if (editing) {
+            editor.setVisibility(View.VISIBLE);
+            readScroll.setVisibility(View.GONE);
+            editor.requestFocus();
+            int targetOffset = visibleOffset;
+            editor.post(() -> {
+                if (editMode && modeGeneration == generation) editor.setSelection(targetOffset);
+            });
+            editor.postDelayed(() -> {
+                if (!editMode || modeGeneration != generation) return;
+                ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
+                        .showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT);
+            }, 250);
+            editor.postDelayed(() -> {
+                if (!editMode || modeGeneration != generation
+                        || editor.getSelectionStart() != targetOffset) return;
+                editor.scrollTo(0, scrollY);
+                editor.bringPointIntoView(targetOffset);
+            }, 550);
+        } else {
+            ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
+                    .hideSoftInputFromWindow(editor.getWindowToken(), 0);
+            editor.clearFocus();
+            readView.setText(editor.getText().toString());
+            readScroll.setVisibility(View.VISIBLE);
+            editor.setVisibility(View.GONE);
+            readScroll.post(() -> readScroll.scrollTo(0, scrollY));
+        }
     }
 
     private void showError(String title, Exception error) {
@@ -736,6 +861,7 @@ public class MainActivity extends Activity {
             data.readFully(baseline);
             documentUri = uri.isEmpty() ? null : Uri.parse(uri);
             documentName = name;
+            documentPath = documentUri == null ? "Untitled" : queryPath(documentUri, name);
             hasBom = bom;
             setEditorText(new String(bytes, StandardCharsets.UTF_8));
             savedText = new String(baseline, StandardCharsets.UTF_8);
