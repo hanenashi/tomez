@@ -21,7 +21,6 @@ import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
 import android.text.TextUtils;
-import android.text.Layout;
 import android.util.AtomicFile;
 import android.view.Gravity;
 import android.view.Menu;
@@ -36,7 +35,6 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.SeekBar;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.view.inputmethod.InputMethodManager;
@@ -88,10 +86,8 @@ public class MainActivity extends Activity {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private EditText editor;
-    private TextView readView;
-    private ScrollView readScroll;
     private TextView title;
-    private ImageButton modeButton;
+    private ImageButton pencilButton;
     private Button menuButton;
     private View toolbar;
     private View divider;
@@ -106,8 +102,6 @@ public class MainActivity extends Activity {
     private boolean dirty;
     private boolean suppressChanges;
     private boolean busy;
-    private boolean editMode;
-    private int modeGeneration;
     private Runnable afterSave;
     private final Runnable updateDraft = () -> {
         if (dirty) saveDraft();
@@ -126,7 +120,6 @@ public class MainActivity extends Activity {
         restoreDraft();
         applyAppearance();
         updateTitle();
-        setEditMode(false);
     }
 
     private void buildUi() {
@@ -164,12 +157,12 @@ public class MainActivity extends Activity {
         });
         toolbarRow.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1));
 
-        modeButton = new ImageButton(this);
-        modeButton.setImageResource(R.drawable.ic_read);
-        modeButton.setPadding(dp(12), dp(12), dp(12), dp(12));
-        modeButton.setContentDescription("Read mode. Tap to edit.");
-        modeButton.setOnClickListener(view -> setEditMode(!editMode));
-        toolbarRow.addView(modeButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        pencilButton = new ImageButton(this);
+        pencilButton.setImageResource(R.drawable.ic_edit);
+        pencilButton.setPadding(dp(12), dp(12), dp(12), dp(12));
+        pencilButton.setContentDescription("Show keyboard for editing");
+        pencilButton.setOnClickListener(view -> showKeyboard());
+        toolbarRow.addView(pencilButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
 
         menuButton = new Button(this);
         menuButton.setText("⚙");
@@ -183,16 +176,6 @@ public class MainActivity extends Activity {
         divider = new View(this);
         root.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
 
-        readScroll = new ScrollView(this);
-        readScroll.setFillViewport(true);
-        readView = new TextView(this);
-        readView.setGravity(Gravity.TOP | Gravity.START);
-        readView.setPadding(dp(16), dp(12), dp(16), dp(16));
-        readView.setTextIsSelectable(true);
-        readView.setHint("Start typing…");
-        readScroll.addView(readView);
-        root.addView(readScroll, new LinearLayout.LayoutParams(-1, 0, 1));
-
         editor = new EditText(this);
         editor.setGravity(Gravity.TOP | Gravity.START);
         editor.setPadding(dp(16), dp(12), dp(16), dp(16));
@@ -201,6 +184,7 @@ public class MainActivity extends Activity {
         editor.setInputType(android.text.InputType.TYPE_CLASS_TEXT
                 | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         editor.setHorizontallyScrolling(false);
+        editor.setShowSoftInputOnFocus(false);
         editor.setHint("Start typing…");
         editor.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
@@ -213,7 +197,6 @@ public class MainActivity extends Activity {
                 mainHandler.postDelayed(updateDraft, DRAFT_DELAY_MS);
             }
         });
-        editor.setVisibility(View.GONE);
         root.addView(editor, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
     }
@@ -423,22 +406,17 @@ public class MainActivity extends Activity {
         toolbar.setBackgroundColor(surface);
         divider.setBackgroundColor(line);
         title.setTextColor(foreground);
-        modeButton.setImageTintList(ColorStateList.valueOf(foreground));
-        modeButton.setBackgroundTintList(ColorStateList.valueOf(surface));
+        pencilButton.setImageTintList(ColorStateList.valueOf(foreground));
+        pencilButton.setBackgroundTintList(ColorStateList.valueOf(surface));
         editor.setTextColor(foreground);
         editor.setHintTextColor(muted);
         editor.setHighlightColor(Color.argb(90, Color.red(accent), Color.green(accent), Color.blue(accent)));
-        readView.setTextColor(foreground);
-        readView.setHintTextColor(muted);
-        readView.setHighlightColor(Color.argb(90, Color.red(accent), Color.green(accent), Color.blue(accent)));
         int font = preferences.getInt("font", FONT_SANS);
         Typeface typeface = font == FONT_SERIF ? Typeface.SERIF
                 : font == FONT_MONO ? Typeface.MONOSPACE : Typeface.SANS_SERIF;
         editor.setTypeface(typeface);
-        readView.setTypeface(typeface);
         int size = preferences.getInt("size", 18);
         editor.setTextSize(size);
-        readView.setTextSize(size);
         menuButton.setTextColor(foreground);
         menuButton.setBackgroundTintList(ColorStateList.valueOf(surface));
         applySystemUi();
@@ -520,7 +498,7 @@ public class MainActivity extends Activity {
         hasBom = false;
         setEditorText("");
         clearDraft();
-        setEditMode(true);
+        showKeyboard();
     }
 
     private void launchOpen() {
@@ -580,7 +558,8 @@ public class MainActivity extends Activity {
                     hasBom = opened.hasBom;
                     setEditorText(opened.text);
                     clearDraft();
-                    setEditMode(false);
+                    ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
+                            .hideSoftInputFromWindow(editor.getWindowToken(), 0);
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
@@ -721,8 +700,6 @@ public class MainActivity extends Activity {
         editor.setSelection(0);
         editor.scrollTo(0, 0);
         suppressChanges = false;
-        readView.setText(text);
-        readScroll.scrollTo(0, 0);
         savedText = text;
         dirty = false;
         updateTitle();
@@ -731,7 +708,7 @@ public class MainActivity extends Activity {
     private void setBusy(boolean value) {
         busy = value;
         editor.setEnabled(!value);
-        modeButton.setEnabled(!value);
+        pencilButton.setEnabled(!value);
         menuButton.setEnabled(!value);
     }
 
@@ -740,51 +717,19 @@ public class MainActivity extends Activity {
         title.setContentDescription(documentPath + (dirty ? ", unsaved changes" : ""));
     }
 
-    private void setEditMode(boolean editing) {
-        if (editMode == editing && editor.getVisibility() == (editing ? View.VISIBLE : View.GONE))
-            return;
-        int scrollY = editMode ? editor.getScrollY() : readScroll.getScrollY();
-        int visibleOffset = editor.getSelectionStart();
-        if (editing) {
-            Layout layout = readView.getLayout();
-            if (layout != null) {
-                int line = layout.getLineForVertical(scrollY + dp(12));
-                visibleOffset = Math.min(editor.length(), layout.getLineStart(line));
+    private void showKeyboard() {
+        editor.setShowSoftInputOnFocus(true);
+        editor.requestFocus();
+        editor.postDelayed(() -> {
+            try {
+                if (editor.hasFocus() && editor.hasWindowFocus())
+                    ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
+                            .showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT);
+            } finally {
+                // Keep later taps and scrolls quiet after the keyboard is dismissed.
+                editor.setShowSoftInputOnFocus(false);
             }
-        }
-        editMode = editing;
-        int generation = ++modeGeneration;
-        modeButton.setImageResource(editing ? R.drawable.ic_edit : R.drawable.ic_read);
-        modeButton.setContentDescription(editing
-                ? "Edit mode. Tap to read." : "Read mode. Tap to edit.");
-        if (editing) {
-            editor.setVisibility(View.VISIBLE);
-            readScroll.setVisibility(View.GONE);
-            editor.requestFocus();
-            int targetOffset = visibleOffset;
-            editor.post(() -> {
-                if (editMode && modeGeneration == generation) editor.setSelection(targetOffset);
-            });
-            editor.postDelayed(() -> {
-                if (!editMode || modeGeneration != generation) return;
-                ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
-                        .showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT);
-            }, 250);
-            editor.postDelayed(() -> {
-                if (!editMode || modeGeneration != generation
-                        || editor.getSelectionStart() != targetOffset) return;
-                editor.scrollTo(0, scrollY);
-                editor.bringPointIntoView(targetOffset);
-            }, 550);
-        } else {
-            ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
-                    .hideSoftInputFromWindow(editor.getWindowToken(), 0);
-            editor.clearFocus();
-            readView.setText(editor.getText().toString());
-            readScroll.setVisibility(View.VISIBLE);
-            editor.setVisibility(View.GONE);
-            readScroll.post(() -> readScroll.scrollTo(0, scrollY));
-        }
+        }, 250);
     }
 
     private void showError(String title, Exception error) {

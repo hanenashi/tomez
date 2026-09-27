@@ -10,15 +10,15 @@ A small native Android plaintext editor written in Java with Android Views and n
 - UTF-8 text, including Unicode and UTF-8 files with a byte-order mark
 - System sans, system serif, and monospace fonts; a text-size slider with custom entry; light, dark, grey, and green themes
 - A fullscreen toggle; appearance and fullscreen choices saved across launches
-- Read and Edit modes; tap the eye or pencil icon to switch modes, and Read mode scrolls without opening the keyboard
-- Android's native blinking cursor in Edit mode
+- One native EditText for reading and editing; scrolling and tapping text do not open the keyboard
+- Tap the pencil button to open the keyboard; native cursor, selection, copy/paste, and undo remain available
 - A user-visible path such as `Documents/notes.txt` in the title for local files; the provider URI for files without a filesystem path
 - Version and GitHub link at the bottom of the gear menu
 - An internal recovery draft for unsaved edits, written after a short pause in typing and when the app goes into the background
 
 The editor accepts files up to 1 MiB. Files that are not valid UTF-8 are rejected without changing the open document. Save As makes the new file the current document. The recovery draft is local to the app and is cleared after a successful save or explicit discard.
 
-Opening a file enters Read mode. Tap the eye icon to enter Edit mode, then tap the pencil icon to return to Read mode. New starts in Edit mode. Long-press the title to see the complete file location when it does not fit in the toolbar. The text-size slider covers 10–40 sp; the number field accepts 8–96 sp. Fullscreen hides Android's status and navigation bars. Swipe from an edge to reveal them briefly, or turn Fullscreen off in the gear menu.
+The document stays visible in one EditText. Tap or scroll without opening the keyboard; press the pencil when ready to type. New opens the keyboard for a blank document. Long-press the title to see the complete file location when it does not fit in the toolbar. The text-size slider covers 10–40 sp; the number field accepts 8–96 sp. Fullscreen hides Android's status and navigation bars. Swipe from an edge to reveal them briefly, or turn Fullscreen off in the gear menu.
 
 ## Build
 
