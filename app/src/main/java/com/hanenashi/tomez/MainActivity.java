@@ -10,6 +10,7 @@ import android.content.res.ColorStateList;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,18 +24,15 @@ import android.text.TextWatcher;
 import android.text.TextUtils;
 import android.util.AtomicFile;
 import android.view.Gravity;
-import android.view.Menu;
-import android.view.SubMenu;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.ContextThemeWrapper;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
 import android.widget.SeekBar;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.view.inputmethod.InputMethodManager;
@@ -62,22 +60,14 @@ public class MainActivity extends Activity {
     private static final int DRAFT_VERSION = 2;
     private static final long DRAFT_DELAY_MS = 1000;
 
-    private static final int NEW = 1;
-    private static final int OPEN = 2;
-    private static final int SAVE = 3;
-    private static final int SAVE_AS = 4;
-    private static final int CLOSE = 5;
     private static final int FONT_SANS = 10;
     private static final int FONT_SERIF = 11;
     private static final int FONT_MONO = 12;
-    private static final int SIZE = 20;
-    private static final int FULLSCREEN = 21;
     private static final int THEME_LIGHT = 30;
     private static final int THEME_DARK = 31;
     private static final int OLD_THEME_BLACK = 32;
     private static final int THEME_GREY = 33;
     private static final int THEME_GREEN = 34;
-    private static final int GITHUB = 50;
     private static final int MIN_SLIDER_SIZE = 10;
     private static final int MAX_SLIDER_SIZE = 40;
     private static final int MIN_CUSTOM_SIZE = 8;
@@ -88,7 +78,7 @@ public class MainActivity extends Activity {
     private EditText editor;
     private TextView title;
     private ImageButton pencilButton;
-    private Button menuButton;
+    private ImageButton menuButton;
     private View toolbar;
     private View divider;
     private LinearLayout root;
@@ -102,6 +92,11 @@ public class MainActivity extends Activity {
     private boolean dirty;
     private boolean suppressChanges;
     private boolean busy;
+    private int menuSurface;
+    private int menuForeground;
+    private int menuMuted;
+    private int menuLine;
+    private int menuAccent;
     private Runnable afterSave;
     private final Runnable updateDraft = () -> {
         if (dirty) saveDraft();
@@ -147,12 +142,9 @@ public class MainActivity extends Activity {
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.MIDDLE);
         title.setTextSize(18);
+        title.setOnClickListener(view -> showFileLocation());
         title.setOnLongClickListener(view -> {
-            new AlertDialog.Builder(themedContext())
-                    .setTitle("File location")
-                    .setMessage(documentPath)
-                    .setPositiveButton("OK", null)
-                    .show();
+            showFileLocation();
             return true;
         });
         toolbarRow.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1));
@@ -160,17 +152,18 @@ public class MainActivity extends Activity {
         pencilButton = new ImageButton(this);
         pencilButton.setImageResource(R.drawable.ic_edit);
         pencilButton.setPadding(dp(12), dp(12), dp(12), dp(12));
+        pencilButton.setBackgroundColor(Color.TRANSPARENT);
         pencilButton.setContentDescription("Show keyboard for editing");
         pencilButton.setOnClickListener(view -> showKeyboard());
         toolbarRow.addView(pencilButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
 
-        menuButton = new Button(this);
-        menuButton.setText("⚙");
-        menuButton.setTextSize(26);
-        menuButton.setAllCaps(false);
+        menuButton = new ImageButton(this);
+        menuButton.setImageResource(R.drawable.ic_more_vert);
+        menuButton.setPadding(dp(12), dp(12), dp(12), dp(12));
+        menuButton.setBackgroundColor(Color.TRANSPARENT);
         menuButton.setContentDescription("Menu and settings");
-        menuButton.setOnClickListener(this::showMenu);
-        toolbarRow.addView(menuButton, new LinearLayout.LayoutParams(dp(56), dp(48)));
+        menuButton.setOnClickListener(view -> showMenu());
+        toolbarRow.addView(menuButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
         root.addView(toolbarRow);
 
         divider = new View(this);
@@ -201,81 +194,163 @@ public class MainActivity extends Activity {
         setContentView(root);
     }
 
-    private void showMenu(View anchor) {
-        PopupMenu popup = new PopupMenu(themedContext(), anchor);
-        Menu menu = popup.getMenu();
-        menu.add(0, NEW, 0, "New");
-        menu.add(0, OPEN, 1, "Open…");
-        menu.add(0, SAVE, 2, "Save");
-        menu.add(0, SAVE_AS, 3, "Save As…");
-        menu.add(0, CLOSE, 4, "Close");
+    private void showFileLocation() {
+        new AlertDialog.Builder(themedContext())
+                .setTitle(documentName)
+                .setMessage(documentPath)
+                .setPositiveButton("OK", null)
+                .show();
+    }
 
-        SubMenu fonts = menu.addSubMenu(0, 0, 5, "Font");
-        int currentFont = preferences.getInt("font", FONT_SANS);
-        fonts.add(100, FONT_SANS, 0, "System sans").setCheckable(true)
-                .setChecked(currentFont == FONT_SANS);
-        fonts.add(100, FONT_SERIF, 1, "System serif").setCheckable(true)
-                .setChecked(currentFont == FONT_SERIF);
-        fonts.add(100, FONT_MONO, 2, "Monospace").setCheckable(true)
-                .setChecked(currentFont == FONT_MONO);
+    private void showMenu() {
+        ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
+                .hideSoftInputFromWindow(editor.getWindowToken(), 0);
+        Context context = themedContext();
+        LinearLayout panel = new LinearLayout(context);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(12), dp(8), dp(12), dp(8));
+        panel.setBackgroundColor(menuSurface);
+        AlertDialog dialog = new AlertDialog.Builder(context).setView(panel).create();
 
-        menu.add(0, SIZE, 6, "Text size…");
+        LinearLayout files = new LinearLayout(context);
+        files.setGravity(Gravity.CENTER);
+        panel.addView(files);
+        fileAction(files, "New", dialog, () -> confirmDiscard(this::newDocument));
+        fileAction(files, "Open", dialog, () -> confirmDiscard(this::launchOpen));
+        fileAction(files, "Save", dialog, () -> save(null));
+        fileAction(files, "Save As", dialog, this::launchCreate);
+        fileAction(files, "Close", dialog, () -> confirmDiscard(this::newDocument));
 
-        SubMenu themes = menu.addSubMenu(0, 0, 7, "Theme");
-        int currentTheme = preferences.getInt("theme", THEME_LIGHT);
-        themes.add(200, THEME_LIGHT, 0, "Light").setCheckable(true)
-                .setChecked(currentTheme == THEME_LIGHT);
-        themes.add(200, THEME_DARK, 1, "Dark").setCheckable(true)
-                .setChecked(currentTheme == THEME_DARK);
-        themes.add(200, THEME_GREY, 2, "Grey").setCheckable(true)
-                .setChecked(currentTheme == THEME_GREY);
-        themes.add(200, THEME_GREEN, 3, "Green (Matrix)").setCheckable(true)
-                .setChecked(currentTheme == THEME_GREEN);
+        menuDivider(panel);
+        int font = preferences.getInt("font", FONT_SANS);
+        String fontName = font == FONT_SERIF ? "System serif"
+                : font == FONT_MONO ? "Monospace" : "System sans";
+        settingRow(panel, "Font", fontName, dialog, this::showFontChooser);
+        settingRow(panel, "Text size", preferences.getInt("size", 18) + " sp",
+                dialog, this::showTextSizeDialog);
+        int theme = preferences.getInt("theme", THEME_LIGHT);
+        String themeName = theme == THEME_DARK ? "Dark" : theme == THEME_GREY ? "Grey"
+                : theme == THEME_GREEN ? "Green / Matrix" : "Light";
+        settingRow(panel, "Theme", themeName, dialog, this::showThemeChooser);
 
-        menu.add(0, FULLSCREEN, 8, "Fullscreen").setCheckable(true)
-                .setChecked(preferences.getBoolean("fullscreen", false));
-        menu.add(0, 0, 9, "tomez " + BuildConfig.VERSION_NAME).setEnabled(false);
-        menu.add(0, GITHUB, 10, "github.com/hanenashi/tomez ↗");
-
-        popup.setOnMenuItemClickListener(item -> {
-            int id = item.getItemId();
-            switch (id) {
-                case NEW:
-                case CLOSE:
-                    confirmDiscard(this::newDocument);
-                    return true;
-                case OPEN:
-                    confirmDiscard(this::launchOpen);
-                    return true;
-                case SAVE:
-                    save(null);
-                    return true;
-                case SAVE_AS:
-                    launchCreate();
-                    return true;
-                case SIZE:
-                    showTextSizeDialog();
-                    return true;
-                case FULLSCREEN:
-                    preferences.edit().putBoolean("fullscreen",
-                            !preferences.getBoolean("fullscreen", false)).apply();
-                    applySystemUi();
-                    return true;
-                case GITHUB:
-                    openGithub();
-                    return true;
-                default:
-                    if (id >= FONT_SANS && id <= FONT_MONO)
-                        preferences.edit().putInt("font", id).apply();
-                    else if (id == THEME_LIGHT || id == THEME_DARK
-                            || id == THEME_GREY || id == THEME_GREEN)
-                        preferences.edit().putInt("theme", id).apply();
-                    else return false;
-                    applyAppearance();
-                    return true;
-            }
+        LinearLayout fullscreenRow = new LinearLayout(context);
+        fullscreenRow.setGravity(Gravity.CENTER_VERTICAL);
+        fullscreenRow.setPadding(dp(8), 0, dp(8), 0);
+        panel.addView(fullscreenRow, new LinearLayout.LayoutParams(-1, dp(48)));
+        TextView fullscreenLabel = new TextView(context);
+        fullscreenLabel.setText("Fullscreen");
+        fullscreenLabel.setTextSize(15);
+        fullscreenLabel.setTextColor(menuForeground);
+        fullscreenRow.addView(fullscreenLabel, new LinearLayout.LayoutParams(0, -2, 1));
+        Switch fullscreen = new Switch(context);
+        fullscreen.setChecked(preferences.getBoolean("fullscreen", false));
+        fullscreen.setContentDescription("Fullscreen");
+        fullscreen.setOnCheckedChangeListener((button, checked) -> {
+            preferences.edit().putBoolean("fullscreen", checked).apply();
+            applySystemUi();
         });
-        popup.show();
+        fullscreenRow.addView(fullscreen);
+        fullscreenRow.setOnClickListener(view -> fullscreen.setChecked(!fullscreen.isChecked()));
+
+        menuDivider(panel);
+        LinearLayout footer = new LinearLayout(context);
+        footer.setGravity(Gravity.CENTER);
+        panel.addView(footer, new LinearLayout.LayoutParams(-1, dp(32)));
+        TextView version = new TextView(context);
+        version.setText("tomez " + BuildConfig.VERSION_NAME + " · ");
+        version.setTextSize(12);
+        version.setTextColor(menuMuted);
+        footer.addView(version);
+        TextView github = new TextView(context);
+        github.setText("GitHub");
+        github.setTextSize(12);
+        github.setTextColor(menuAccent);
+        github.setOnClickListener(view -> {
+            dialog.dismiss();
+            openGithub();
+        });
+        footer.addView(github, new LinearLayout.LayoutParams(-2, dp(32)));
+        github.setGravity(Gravity.CENTER_VERTICAL);
+
+        dialog.show();
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(menuSurface));
+        dialog.getWindow().setLayout(Math.min(getResources().getDisplayMetrics().widthPixels
+                - dp(32), dp(380)), -2);
+    }
+
+    private void fileAction(LinearLayout row, String label, AlertDialog dialog, Runnable action) {
+        TextView button = new TextView(row.getContext());
+        button.setText(label);
+        button.setTextSize(13);
+        button.setTextColor(label.equals("Close") ? menuMuted : menuForeground);
+        button.setGravity(Gravity.CENTER);
+        button.setOnClickListener(view -> {
+            dialog.dismiss();
+            action.run();
+        });
+        row.addView(button, new LinearLayout.LayoutParams(0, dp(56), 1));
+    }
+
+    private void settingRow(LinearLayout panel, String label, String value,
+                            AlertDialog dialog, Runnable action) {
+        Context context = panel.getContext();
+        LinearLayout row = new LinearLayout(context);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(8), 0, dp(8), 0);
+        panel.addView(row, new LinearLayout.LayoutParams(-1, dp(48)));
+        TextView name = new TextView(context);
+        name.setText(label);
+        name.setTextSize(15);
+        name.setTextColor(menuForeground);
+        row.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView selected = new TextView(context);
+        selected.setText(value);
+        selected.setTextSize(14);
+        selected.setTextColor(menuMuted);
+        row.addView(selected);
+        row.setOnClickListener(view -> {
+            dialog.dismiss();
+            action.run();
+        });
+    }
+
+    private void menuDivider(LinearLayout panel) {
+        View line = new View(panel.getContext());
+        line.setBackgroundColor(menuLine);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(1));
+        params.setMargins(dp(8), dp(4), dp(8), dp(4));
+        panel.addView(line, params);
+    }
+
+    private void showFontChooser() {
+        int current = preferences.getInt("font", FONT_SANS);
+        int checked = current == FONT_SERIF ? 1 : current == FONT_MONO ? 2 : 0;
+        int[] fonts = {FONT_SANS, FONT_SERIF, FONT_MONO};
+        new AlertDialog.Builder(themedContext())
+                .setTitle("Font")
+                .setSingleChoiceItems(new String[]{"System sans", "System serif", "Monospace"},
+                        checked, (dialog, which) -> {
+                            preferences.edit().putInt("font", fonts[which]).apply();
+                            applyAppearance();
+                            dialog.dismiss();
+                        })
+                .show();
+    }
+
+    private void showThemeChooser() {
+        int current = preferences.getInt("theme", THEME_LIGHT);
+        int checked = current == THEME_DARK ? 1 : current == THEME_GREY ? 2
+                : current == THEME_GREEN ? 3 : 0;
+        int[] themes = {THEME_LIGHT, THEME_DARK, THEME_GREY, THEME_GREEN};
+        new AlertDialog.Builder(themedContext())
+                .setTitle("Theme")
+                .setSingleChoiceItems(new String[]{"Light", "Dark", "Grey", "Green / Matrix"},
+                        checked, (dialog, which) -> {
+                            preferences.edit().putInt("theme", themes[which]).apply();
+                            applyAppearance();
+                            dialog.dismiss();
+                        })
+                .show();
     }
 
     private void showTextSizeDialog() {
@@ -403,11 +478,16 @@ public class MainActivity extends Activity {
                 break;
         }
         root.setBackgroundColor(background);
+        menuSurface = surface;
+        menuForeground = foreground;
+        menuMuted = muted;
+        menuLine = line;
+        menuAccent = accent;
         toolbar.setBackgroundColor(surface);
         divider.setBackgroundColor(line);
         title.setTextColor(foreground);
         pencilButton.setImageTintList(ColorStateList.valueOf(foreground));
-        pencilButton.setBackgroundTintList(ColorStateList.valueOf(surface));
+        menuButton.setImageTintList(ColorStateList.valueOf(foreground));
         editor.setTextColor(foreground);
         editor.setHintTextColor(muted);
         editor.setHighlightColor(Color.argb(90, Color.red(accent), Color.green(accent), Color.blue(accent)));
@@ -417,8 +497,6 @@ public class MainActivity extends Activity {
         editor.setTypeface(typeface);
         int size = preferences.getInt("size", 18);
         editor.setTextSize(size);
-        menuButton.setTextColor(foreground);
-        menuButton.setBackgroundTintList(ColorStateList.valueOf(surface));
         applySystemUi();
     }
 
@@ -713,8 +791,9 @@ public class MainActivity extends Activity {
     }
 
     private void updateTitle() {
-        title.setText(documentPath + (dirty ? " •" : ""));
-        title.setContentDescription(documentPath + (dirty ? ", unsaved changes" : ""));
+        title.setText(documentName + (dirty ? " •" : ""));
+        title.setContentDescription(documentName + (dirty ? ", unsaved changes" : "")
+                + ". Tap for file location.");
     }
 
     private void showKeyboard() {
