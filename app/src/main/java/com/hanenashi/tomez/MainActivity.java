@@ -32,6 +32,7 @@ import android.view.WindowInsetsController;
 import android.view.ContextThemeWrapper;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.SeekBar;
@@ -68,8 +69,6 @@ public class MainActivity extends Activity {
     private static final int SAVE = 3;
     private static final int SAVE_AS = 4;
     private static final int CLOSE = 5;
-    private static final int MODE_READ = 6;
-    private static final int MODE_EDIT = 7;
     private static final int FONT_SANS = 10;
     private static final int FONT_SERIF = 11;
     private static final int FONT_MONO = 12;
@@ -92,7 +91,7 @@ public class MainActivity extends Activity {
     private TextView readView;
     private ScrollView readScroll;
     private TextView title;
-    private TextView modeLabel;
+    private ImageButton modeButton;
     private Button menuButton;
     private View toolbar;
     private View divider;
@@ -155,18 +154,22 @@ public class MainActivity extends Activity {
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.MIDDLE);
         title.setTextSize(18);
-        title.setOnClickListener(view -> new AlertDialog.Builder(themedContext())
-                .setTitle("File location")
-                .setMessage(documentPath)
-                .setPositiveButton("OK", null)
-                .show());
+        title.setOnLongClickListener(view -> {
+            new AlertDialog.Builder(themedContext())
+                    .setTitle("File location")
+                    .setMessage(documentPath)
+                    .setPositiveButton("OK", null)
+                    .show();
+            return true;
+        });
         toolbarRow.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1));
 
-        modeLabel = new TextView(this);
-        modeLabel.setText("READ");
-        modeLabel.setTextSize(11);
-        modeLabel.setGravity(Gravity.CENTER);
-        toolbarRow.addView(modeLabel, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        modeButton = new ImageButton(this);
+        modeButton.setImageResource(R.drawable.ic_read);
+        modeButton.setPadding(dp(12), dp(12), dp(12), dp(12));
+        modeButton.setContentDescription("Read mode. Tap to edit.");
+        modeButton.setOnClickListener(view -> setEditMode(!editMode));
+        toolbarRow.addView(modeButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
 
         menuButton = new Button(this);
         menuButton.setText("⚙");
@@ -218,16 +221,13 @@ public class MainActivity extends Activity {
     private void showMenu(View anchor) {
         PopupMenu popup = new PopupMenu(themedContext(), anchor);
         Menu menu = popup.getMenu();
-        SubMenu modes = menu.addSubMenu(0, 0, 0, "Mode");
-        modes.add(300, MODE_READ, 0, "Read").setCheckable(true).setChecked(!editMode);
-        modes.add(300, MODE_EDIT, 1, "Edit").setCheckable(true).setChecked(editMode);
-        menu.add(0, NEW, 1, "New");
-        menu.add(0, OPEN, 2, "Open…");
-        menu.add(0, SAVE, 3, "Save");
-        menu.add(0, SAVE_AS, 4, "Save As…");
-        menu.add(0, CLOSE, 5, "Close");
+        menu.add(0, NEW, 0, "New");
+        menu.add(0, OPEN, 1, "Open…");
+        menu.add(0, SAVE, 2, "Save");
+        menu.add(0, SAVE_AS, 3, "Save As…");
+        menu.add(0, CLOSE, 4, "Close");
 
-        SubMenu fonts = menu.addSubMenu(0, 0, 6, "Font");
+        SubMenu fonts = menu.addSubMenu(0, 0, 5, "Font");
         int currentFont = preferences.getInt("font", FONT_SANS);
         fonts.add(100, FONT_SANS, 0, "System sans").setCheckable(true)
                 .setChecked(currentFont == FONT_SANS);
@@ -236,9 +236,9 @@ public class MainActivity extends Activity {
         fonts.add(100, FONT_MONO, 2, "Monospace").setCheckable(true)
                 .setChecked(currentFont == FONT_MONO);
 
-        menu.add(0, SIZE, 7, "Text size…");
+        menu.add(0, SIZE, 6, "Text size…");
 
-        SubMenu themes = menu.addSubMenu(0, 0, 8, "Theme");
+        SubMenu themes = menu.addSubMenu(0, 0, 7, "Theme");
         int currentTheme = preferences.getInt("theme", THEME_LIGHT);
         themes.add(200, THEME_LIGHT, 0, "Light").setCheckable(true)
                 .setChecked(currentTheme == THEME_LIGHT);
@@ -249,10 +249,10 @@ public class MainActivity extends Activity {
         themes.add(200, THEME_GREEN, 3, "Green (Matrix)").setCheckable(true)
                 .setChecked(currentTheme == THEME_GREEN);
 
-        menu.add(0, FULLSCREEN, 9, "Fullscreen").setCheckable(true)
+        menu.add(0, FULLSCREEN, 8, "Fullscreen").setCheckable(true)
                 .setChecked(preferences.getBoolean("fullscreen", false));
-        menu.add(0, 0, 10, "tomez " + BuildConfig.VERSION_NAME).setEnabled(false);
-        menu.add(0, GITHUB, 11, "github.com/hanenashi/tomez ↗");
+        menu.add(0, 0, 9, "tomez " + BuildConfig.VERSION_NAME).setEnabled(false);
+        menu.add(0, GITHUB, 10, "github.com/hanenashi/tomez ↗");
 
         popup.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
@@ -272,12 +272,6 @@ public class MainActivity extends Activity {
                     return true;
                 case SIZE:
                     showTextSizeDialog();
-                    return true;
-                case MODE_READ:
-                    setEditMode(false);
-                    return true;
-                case MODE_EDIT:
-                    setEditMode(true);
                     return true;
                 case FULLSCREEN:
                     preferences.edit().putBoolean("fullscreen",
@@ -429,7 +423,8 @@ public class MainActivity extends Activity {
         toolbar.setBackgroundColor(surface);
         divider.setBackgroundColor(line);
         title.setTextColor(foreground);
-        modeLabel.setTextColor(muted);
+        modeButton.setImageTintList(ColorStateList.valueOf(foreground));
+        modeButton.setBackgroundTintList(ColorStateList.valueOf(surface));
         editor.setTextColor(foreground);
         editor.setHintTextColor(muted);
         editor.setHighlightColor(Color.argb(90, Color.red(accent), Color.green(accent), Color.blue(accent)));
@@ -693,16 +688,31 @@ public class MainActivity extends Activity {
                 if (colon > 0 && colon < id.length() - 1) {
                     String volume = id.substring(0, colon);
                     String relative = id.substring(colon + 1);
-                    String root = "primary".equalsIgnoreCase(volume)
-                            ? "/storage/emulated/0" : "/storage/" + volume;
-                    return root + "/" + relative;
+                    if ("primary".equalsIgnoreCase(volume)) return relative;
+                    if ("home".equalsIgnoreCase(volume))
+                        return relative.startsWith("Documents/") ? relative : "Documents/" + relative;
+                    return volume + "/" + relative;
                 }
             } catch (IllegalArgumentException ignored) { }
         }
+        if ("com.android.providers.downloads.documents".equals(uri.getAuthority())) {
+            try {
+                String id = DocumentsContract.getDocumentId(uri);
+                if (id.startsWith("raw:")) return userVisiblePath(id.substring(4));
+            } catch (IllegalArgumentException ignored) { }
+            return "Download/" + name;
+        }
         if ("file".equals(uri.getScheme()) && uri.getPath() != null)
-            return uri.getPath();
+            return userVisiblePath(uri.getPath());
         // Other document providers can use opaque IDs rather than filesystem paths.
         return name + " · " + uri;
+    }
+
+    private String userVisiblePath(String path) {
+        for (String prefix : new String[]{"/storage/emulated/0/", "/storage/self/primary/", "/sdcard/"}) {
+            if (path.startsWith(prefix)) return path.substring(prefix.length());
+        }
+        return path;
     }
 
     private void setEditorText(String text) {
@@ -721,6 +731,7 @@ public class MainActivity extends Activity {
     private void setBusy(boolean value) {
         busy = value;
         editor.setEnabled(!value);
+        modeButton.setEnabled(!value);
         menuButton.setEnabled(!value);
     }
 
@@ -743,7 +754,9 @@ public class MainActivity extends Activity {
         }
         editMode = editing;
         int generation = ++modeGeneration;
-        modeLabel.setText(editing ? "EDIT" : "READ");
+        modeButton.setImageResource(editing ? R.drawable.ic_edit : R.drawable.ic_read);
+        modeButton.setContentDescription(editing
+                ? "Edit mode. Tap to read." : "Read mode. Tap to edit.");
         if (editing) {
             editor.setVisibility(View.VISIBLE);
             readScroll.setVisibility(View.GONE);
