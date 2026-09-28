@@ -1,6 +1,14 @@
 # tomez
 
-<p align="center"><img src="assets/tomez.png" width="180" alt="tomez mascot"></p>\n\n<p align="center"><a href="https://hanenashi.github.io/tomez/">tomez website</a></p>\n\nA small native Android plaintext editor written in Java with Android Views and no external runtime dependencies.
+<p align="center">
+  <img src="assets/tomez.png" width="220" alt="tomez">
+</p>
+
+<p align="center">
+  <a href="https://hanenashi.github.io/tomez/">Website / GitHub Pages</a>
+</p>
+
+A small native Android plaintext editor written in Java with Android Views and no external runtime dependencies.
 
 ## What works
 
