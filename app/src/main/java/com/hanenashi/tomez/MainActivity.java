@@ -85,6 +85,7 @@ public class MainActivity extends Activity {
     private ScrollView documentScroll;
     private TextView title;
     private ImageButton pencilButton;
+    private ImageButton wrapButton;
     private ImageButton menuButton;
     private View toolbar;
     private View divider;
@@ -184,6 +185,13 @@ public class MainActivity extends Activity {
         pencilButton.setOnClickListener(view -> toggleKeyboard());
         toolbarRow.addView(pencilButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
 
+        wrapButton = new ImageButton(this);
+        wrapButton.setImageResource(R.drawable.ic_wrap);
+        wrapButton.setPadding(dp(12), dp(12), dp(12), dp(12));
+        wrapButton.setBackgroundColor(Color.TRANSPARENT);
+        wrapButton.setOnClickListener(view -> toggleLineWrapping());
+        toolbarRow.addView(wrapButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
+
         menuButton = new ImageButton(this);
         menuButton.setImageResource(R.drawable.ic_more_vert);
         menuButton.setPadding(dp(12), dp(12), dp(12), dp(12));
@@ -214,7 +222,7 @@ public class MainActivity extends Activity {
         editor.setSingleLine(false);
         editor.setInputType(android.text.InputType.TYPE_CLASS_TEXT
                 | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        editor.setHorizontallyScrolling(false);
+        editor.setHorizontallyScrolling(!preferences.getBoolean("wrap_lines", true));
         editor.setVerticalScrollBarEnabled(false);
         editor.setShowSoftInputOnFocus(false);
         editor.setHint("Start typing…");
@@ -604,6 +612,7 @@ public class MainActivity extends Activity {
         divider.setBackgroundColor(line);
         title.setTextColor(foreground);
         pencilButton.setImageTintList(ColorStateList.valueOf(foreground));
+        updateWrapButton();
         menuButton.setImageTintList(ColorStateList.valueOf(foreground));
         editor.setTextColor(foreground);
         editor.setHintTextColor(muted);
@@ -922,7 +931,24 @@ public class MainActivity extends Activity {
         busy = value;
         editor.setEnabled(!value);
         pencilButton.setEnabled(!value);
+        wrapButton.setEnabled(!value);
         menuButton.setEnabled(!value);
+    }
+
+    private void toggleLineWrapping() {
+        boolean wrap = !preferences.getBoolean("wrap_lines", true);
+        preferences.edit().putBoolean("wrap_lines", wrap).apply();
+        editor.setHorizontallyScrolling(!wrap);
+        if (wrap) editor.scrollTo(0, editor.getScrollY());
+        updateWrapButton();
+    }
+
+    private void updateWrapButton() {
+        boolean wrap = preferences.getBoolean("wrap_lines", true);
+        wrapButton.setImageTintList(ColorStateList.valueOf(wrap ? menuForeground : menuMuted));
+        wrapButton.setContentDescription(wrap
+                ? "Line wrapping on. Tap to turn off"
+                : "Line wrapping off. Tap to turn on");
     }
 
     private void updateTitle() {
