@@ -11,6 +11,7 @@ import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -177,7 +178,13 @@ public class MainActivity extends Activity {
         documentScroll = new ScrollView(this);
         documentScroll.setFillViewport(true);
         documentScroll.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
-        documentScroll.setVerticalScrollBarEnabled(false);
+        documentScroll.setVerticalScrollBarEnabled(true);
+        documentScroll.setVerticalScrollbarPosition(View.SCROLLBAR_POSITION_RIGHT);
+        documentScroll.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
+        documentScroll.setScrollBarSize(dp(3));
+        documentScroll.setScrollbarFadingEnabled(true);
+        documentScroll.setScrollBarDefaultDelayBeforeFade(600);
+        documentScroll.setScrollBarFadeDuration(350);
 
         editor = new EditText(this);
         editor.setGravity(Gravity.TOP | Gravity.START);
@@ -558,7 +565,14 @@ public class MainActivity extends Activity {
         editor.setTextColor(foreground);
         editor.setHintTextColor(muted);
         editor.setHighlightColor(Color.argb(90, Color.red(accent), Color.green(accent), Color.blue(accent)));
-        if (Build.VERSION.SDK_INT >= 29) documentScroll.setEdgeEffectColor(accent);
+        if (Build.VERSION.SDK_INT >= 29) {
+            documentScroll.setEdgeEffectColor(accent);
+            GradientDrawable scrollThumb = new GradientDrawable();
+            scrollThumb.setColor(Color.argb(180, Color.red(muted), Color.green(muted), Color.blue(muted)));
+            scrollThumb.setCornerRadius(dp(3));
+            documentScroll.setVerticalScrollbarThumbDrawable(scrollThumb);
+            documentScroll.setVerticalScrollbarTrackDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
         int font = preferences.getInt("font", FONT_SANS);
         Typeface typeface = font == FONT_SERIF ? Typeface.SERIF
                 : font == FONT_MONO ? Typeface.MONOSPACE : Typeface.SANS_SERIF;
