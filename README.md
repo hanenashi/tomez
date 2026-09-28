@@ -10,10 +10,10 @@ A small native Android plaintext editor written in Java with Android Views and n
 - UTF-8 text, including Unicode and UTF-8 files with a byte-order mark
 - System sans, system serif, and monospace fonts; a text-size slider with custom entry; light, dark, grey, and green themes
 - A fullscreen toggle; appearance and fullscreen choices saved across launches
-- One native EditText for reading and editing; scrolling and tapping text do not open the keyboard
+- One native EditText for reading and editing, inside a platform ScrollView for fling and edge feedback; scrolling and tapping text do not open the keyboard
 - Tap the pencil button to open the keyboard; native cursor, selection, copy/paste, and undo remain available
 - Filename and unsaved marker in the toolbar; tap or long-press it for the full location
-- Current font, size, and theme shown in the menu; single-choice font and theme pickers
+- Current font, size, and theme shown in the menu; matching compact font, theme, and text-size dialogs
 - Version and GitHub link at the bottom of the overflow menu
 - An internal recovery draft for unsaved edits, written after a short pause in typing and when the app goes into the background
 

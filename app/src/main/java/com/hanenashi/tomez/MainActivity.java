@@ -31,6 +31,9 @@ import android.view.ContextThemeWrapper;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
@@ -76,6 +79,7 @@ public class MainActivity extends Activity {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private EditText editor;
+    private ScrollView documentScroll;
     private TextView title;
     private ImageButton pencilButton;
     private ImageButton menuButton;
@@ -142,6 +146,7 @@ public class MainActivity extends Activity {
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.MIDDLE);
         title.setTextSize(18);
+        title.setGravity(Gravity.CENTER_VERTICAL);
         title.setOnClickListener(view -> showFileLocation());
         title.setOnLongClickListener(view -> {
             showFileLocation();
@@ -169,6 +174,11 @@ public class MainActivity extends Activity {
         divider = new View(this);
         root.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
 
+        documentScroll = new ScrollView(this);
+        documentScroll.setFillViewport(true);
+        documentScroll.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
+        documentScroll.setVerticalScrollBarEnabled(false);
+
         editor = new EditText(this);
         editor.setGravity(Gravity.TOP | Gravity.START);
         editor.setPadding(dp(16), dp(12), dp(16), dp(16));
@@ -177,6 +187,7 @@ public class MainActivity extends Activity {
         editor.setInputType(android.text.InputType.TYPE_CLASS_TEXT
                 | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         editor.setHorizontallyScrolling(false);
+        editor.setVerticalScrollBarEnabled(false);
         editor.setShowSoftInputOnFocus(false);
         editor.setHint("Start typing…");
         editor.addTextChangedListener(new TextWatcher() {
@@ -190,7 +201,8 @@ public class MainActivity extends Activity {
                 mainHandler.postDelayed(updateDraft, DRAFT_DELAY_MS);
             }
         });
-        root.addView(editor, new LinearLayout.LayoutParams(-1, 0, 1));
+        documentScroll.addView(editor, new ScrollView.LayoutParams(-1, -2));
+        root.addView(documentScroll, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
     }
 
@@ -206,10 +218,7 @@ public class MainActivity extends Activity {
         ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
                 .hideSoftInputFromWindow(editor.getWindowToken(), 0);
         Context context = themedContext();
-        LinearLayout panel = new LinearLayout(context);
-        panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(12), dp(8), dp(12), dp(8));
-        panel.setBackgroundColor(menuSurface);
+        LinearLayout panel = menuPanel(context);
         AlertDialog dialog = new AlertDialog.Builder(context).setView(panel).create();
 
         LinearLayout files = new LinearLayout(context);
@@ -272,10 +281,34 @@ public class MainActivity extends Activity {
         footer.addView(github, new LinearLayout.LayoutParams(-2, dp(32)));
         github.setGravity(Gravity.CENTER_VERTICAL);
 
+        showPanelDialog(dialog);
+    }
+
+    private LinearLayout menuPanel(Context context) {
+        LinearLayout panel = new LinearLayout(context);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(12), dp(8), dp(12), dp(8));
+        panel.setBackgroundColor(menuSurface);
+        return panel;
+    }
+
+    private void showPanelDialog(AlertDialog dialog) {
         dialog.show();
         dialog.getWindow().setBackgroundDrawable(new ColorDrawable(menuSurface));
         dialog.getWindow().setLayout(Math.min(getResources().getDisplayMetrics().widthPixels
                 - dp(32), dp(380)), -2);
+    }
+
+    private void menuHeading(LinearLayout panel, String label) {
+        TextView heading = new TextView(panel.getContext());
+        heading.setText(label);
+        heading.setTextSize(16);
+        heading.setTypeface(null, Typeface.BOLD);
+        heading.setTextColor(menuForeground);
+        heading.setGravity(Gravity.CENTER_VERTICAL);
+        heading.setPadding(dp(8), 0, dp(8), 0);
+        panel.addView(heading, new LinearLayout.LayoutParams(-1, dp(44)));
+        menuDivider(panel);
     }
 
     private void fileAction(LinearLayout row, String label, AlertDialog dialog, Runnable action) {
@@ -323,48 +356,65 @@ public class MainActivity extends Activity {
     }
 
     private void showFontChooser() {
-        int current = preferences.getInt("font", FONT_SANS);
-        int checked = current == FONT_SERIF ? 1 : current == FONT_MONO ? 2 : 0;
-        int[] fonts = {FONT_SANS, FONT_SERIF, FONT_MONO};
-        new AlertDialog.Builder(themedContext())
-                .setTitle("Font")
-                .setSingleChoiceItems(new String[]{"System sans", "System serif", "Monospace"},
-                        checked, (dialog, which) -> {
-                            preferences.edit().putInt("font", fonts[which]).apply();
-                            applyAppearance();
-                            dialog.dismiss();
-                        })
-                .show();
+        showChoiceDialog("Font", "font", new String[]{"System sans", "System serif", "Monospace"},
+                new int[]{FONT_SANS, FONT_SERIF, FONT_MONO}, FONT_SANS);
     }
 
     private void showThemeChooser() {
-        int current = preferences.getInt("theme", THEME_LIGHT);
-        int checked = current == THEME_DARK ? 1 : current == THEME_GREY ? 2
-                : current == THEME_GREEN ? 3 : 0;
-        int[] themes = {THEME_LIGHT, THEME_DARK, THEME_GREY, THEME_GREEN};
-        new AlertDialog.Builder(themedContext())
-                .setTitle("Theme")
-                .setSingleChoiceItems(new String[]{"Light", "Dark", "Grey", "Green / Matrix"},
-                        checked, (dialog, which) -> {
-                            preferences.edit().putInt("theme", themes[which]).apply();
-                            applyAppearance();
-                            dialog.dismiss();
-                        })
-                .show();
+        showChoiceDialog("Theme", "theme", new String[]{"Light", "Dark", "Grey", "Green / Matrix"},
+                new int[]{THEME_LIGHT, THEME_DARK, THEME_GREY, THEME_GREEN}, THEME_LIGHT);
+    }
+
+    private void showChoiceDialog(String title, String key, String[] labels,
+                                  int[] values, int fallback) {
+        Context context = themedContext();
+        LinearLayout panel = menuPanel(context);
+        AlertDialog dialog = new AlertDialog.Builder(context).setView(panel).create();
+        menuHeading(panel, title);
+        RadioGroup choices = new RadioGroup(context);
+        panel.addView(choices);
+        ColorStateList radioColors = new ColorStateList(
+                new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
+                new int[]{menuAccent, menuMuted});
+        int selected = preferences.getInt(key, fallback);
+        for (int i = 0; i < labels.length; i++) {
+            final int value = values[i];
+            RadioButton choice = new RadioButton(context);
+            choice.setId(View.generateViewId());
+            choice.setText(labels[i]);
+            choice.setTextSize(15);
+            choice.setTextColor(menuForeground);
+            choice.setButtonTintList(radioColors);
+            choice.setGravity(Gravity.CENTER_VERTICAL);
+            choice.setPadding(dp(8), 0, dp(8), 0);
+            choices.addView(choice, new RadioGroup.LayoutParams(-1, dp(48)));
+            choice.setChecked(value == selected);
+            choice.setOnClickListener(view -> {
+                preferences.edit().putInt(key, value).apply();
+                applyAppearance();
+                dialog.dismiss();
+            });
+        }
+        showPanelDialog(dialog);
     }
 
     private void showTextSizeDialog() {
         Context context = themedContext();
-        LinearLayout content = new LinearLayout(context);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(24), dp(8), dp(24), 0);
+        LinearLayout content = menuPanel(context);
+        menuHeading(content, "Text size");
 
         TextView help = new TextView(context);
         help.setText("Slide from 10–40 sp, or enter 8–96 sp.");
+        help.setTextSize(13);
+        help.setTextColor(menuMuted);
+        help.setPadding(dp(8), dp(8), dp(8), 0);
         content.addView(help);
 
         SeekBar slider = new SeekBar(context);
         slider.setMax(MAX_SLIDER_SIZE - MIN_SLIDER_SIZE);
+        slider.setThumbTintList(ColorStateList.valueOf(menuAccent));
+        slider.setProgressTintList(ColorStateList.valueOf(menuAccent));
+        slider.setProgressBackgroundTintList(ColorStateList.valueOf(menuLine));
         int currentSize = preferences.getInt("size", 18);
         slider.setProgress(Math.max(0, Math.min(MAX_SLIDER_SIZE - MIN_SLIDER_SIZE,
                 currentSize - MIN_SLIDER_SIZE)));
@@ -376,7 +426,12 @@ public class MainActivity extends Activity {
         manual.setSelectAllOnFocus(true);
         manual.setHint("Size in sp");
         manual.setText(String.valueOf(currentSize));
-        content.addView(manual);
+        manual.setTextColor(menuForeground);
+        manual.setHintTextColor(menuMuted);
+        manual.setBackgroundTintList(ColorStateList.valueOf(menuAccent));
+        LinearLayout.LayoutParams manualParams = new LinearLayout.LayoutParams(-1, -2);
+        manualParams.setMargins(dp(8), 0, dp(8), dp(4));
+        content.addView(manual, manualParams);
 
         slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
@@ -400,30 +455,42 @@ public class MainActivity extends Activity {
             }
         });
 
-        AlertDialog dialog = new AlertDialog.Builder(context)
-                .setTitle("Text size")
-                .setView(content)
-                .setPositiveButton("Apply", null)
-                .setNegativeButton("Cancel", null)
-                .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(view -> {
-                    int size;
-                    try {
-                        size = Integer.parseInt(manual.getText().toString());
-                    } catch (NumberFormatException error) {
-                        manual.setError("Enter a number from 8 to 96.");
-                        return;
-                    }
-                    if (size < MIN_CUSTOM_SIZE || size > MAX_CUSTOM_SIZE) {
-                        manual.setError("Enter a number from 8 to 96.");
-                        return;
-                    }
-                    preferences.edit().putInt("size", size).apply();
-                    applyAppearance();
-                    dialog.dismiss();
-                }));
-        dialog.show();
+        AlertDialog dialog = new AlertDialog.Builder(context).setView(content).create();
+        menuDivider(content);
+        LinearLayout actions = new LinearLayout(context);
+        actions.setGravity(Gravity.END);
+        content.addView(actions);
+        TextView cancel = new TextView(context);
+        cancel.setText("Cancel");
+        cancel.setTextSize(14);
+        cancel.setTextColor(menuMuted);
+        cancel.setGravity(Gravity.CENTER);
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        actions.addView(cancel, new LinearLayout.LayoutParams(dp(72), dp(48)));
+        TextView apply = new TextView(context);
+        apply.setText("Apply");
+        apply.setTextSize(14);
+        apply.setTextColor(menuAccent);
+        apply.setGravity(Gravity.CENTER);
+        apply.setOnClickListener(view -> {
+            int size;
+            try {
+                size = Integer.parseInt(manual.getText().toString());
+            } catch (NumberFormatException error) {
+                manual.setError("Enter a number from 8 to 96.");
+                return;
+            }
+            if (size < MIN_CUSTOM_SIZE || size > MAX_CUSTOM_SIZE) {
+                manual.setError("Enter a number from 8 to 96.");
+                return;
+            }
+            preferences.edit().putInt("size", size).apply();
+            applyAppearance();
+            dialog.dismiss();
+        });
+        actions.addView(apply, new LinearLayout.LayoutParams(dp(72), dp(48)));
+        dialog.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+        showPanelDialog(dialog);
     }
 
     private void openGithub() {
@@ -491,6 +558,7 @@ public class MainActivity extends Activity {
         editor.setTextColor(foreground);
         editor.setHintTextColor(muted);
         editor.setHighlightColor(Color.argb(90, Color.red(accent), Color.green(accent), Color.blue(accent)));
+        if (Build.VERSION.SDK_INT >= 29) documentScroll.setEdgeEffectColor(accent);
         int font = preferences.getInt("font", FONT_SANS);
         Typeface typeface = font == FONT_SERIF ? Typeface.SERIF
                 : font == FONT_MONO ? Typeface.MONOSPACE : Typeface.SANS_SERIF;
@@ -776,7 +844,7 @@ public class MainActivity extends Activity {
         suppressChanges = true;
         editor.setText(text);
         editor.setSelection(0);
-        editor.scrollTo(0, 0);
+        documentScroll.scrollTo(0, 0);
         suppressChanges = false;
         savedText = text;
         dirty = false;
