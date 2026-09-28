@@ -458,11 +458,14 @@ public class MainActivity extends Activity {
                     int size = Integer.parseInt(text.toString());
                     slider.setProgress(Math.max(0, Math.min(MAX_SLIDER_SIZE - MIN_SLIDER_SIZE,
                             size - MIN_SLIDER_SIZE)));
+                    if (size >= MIN_CUSTOM_SIZE && size <= MAX_CUSTOM_SIZE)
+                        editor.setTextSize(size);
                 } catch (NumberFormatException ignored) { }
             }
         });
 
         AlertDialog dialog = new AlertDialog.Builder(context).setView(content).create();
+        dialog.setOnDismissListener(ignored -> editor.setTextSize(preferences.getInt("size", 18)));
         menuDivider(content);
         LinearLayout actions = new LinearLayout(context);
         actions.setGravity(Gravity.END);
@@ -492,12 +495,12 @@ public class MainActivity extends Activity {
                 return;
             }
             preferences.edit().putInt("size", size).apply();
-            applyAppearance();
             dialog.dismiss();
         });
         actions.addView(apply, new LinearLayout.LayoutParams(dp(72), dp(48)));
         dialog.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
         showPanelDialog(dialog);
+        dialog.getWindow().setDimAmount(0.2f);
     }
 
     private void openGithub() {
