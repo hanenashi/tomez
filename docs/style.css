@@ -45,29 +45,13 @@ a { color: inherit; }
   font-size: 1.15rem;
 }
 
-.mark {
+.brand-icon {
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  display: grid;
-  place-items: center;
-  background: var(--warm);
-  overflow: hidden;
-  position: relative;
-  color: #15211d;
-  font-weight: 900;
+  display: block;
+  object-fit: cover;
 }
-
-.mark::before {
-  content: "";
-  position: absolute;
-  inset: 8px -6px auto;
-  height: 8px;
-  background: linear-gradient(90deg, var(--green) 0 34%, var(--red) 34% 67%, var(--green) 67%);
-  transform: rotate(-12deg);
-}
-
-.mark span { position: relative; z-index: 1; margin-top: 9px; }
 
 .langs { display: flex; gap: 8px; align-items: center; color: var(--muted); }
 
@@ -137,55 +121,15 @@ h1 {
   width: min(100%, 340px);
   justify-self: center;
   border-radius: 27%;
-  background: #efb63f;
-  border: 4px solid #19201e;
   box-shadow: 0 18px 40px rgb(0 0 0 / .12);
   overflow: hidden;
-  position: relative;
-  display: grid;
-  place-items: center;
 }
 
-.hatstripe {
-  position: absolute;
-  width: 130%;
-  height: 30%;
-  left: -12%;
-  top: 13%;
-  transform: rotate(-13deg);
-  background:
-    linear-gradient(#1a201e 0 5%, transparent 5% 95%, #1a201e 95%),
-    repeating-linear-gradient(90deg, var(--green) 0 48px, #f5d66c 48px 74px, var(--red) 74px 112px);
-}
-
-.mini-logo {
-  position: relative;
-  font-family: system-ui, sans-serif;
-  font-weight: 1000;
-  font-size: clamp(5rem, 16vw, 9rem);
-  letter-spacing: -.12em;
-  margin-right: .12em;
-  color: #1a201e;
-  transform: translateY(10%);
-}
-
-.terminal {
-  position: absolute;
-  bottom: 9%;
-  left: 10%;
-  right: 10%;
-  border-top: 3px solid #1a201e;
-  padding-top: 10px;
-  font-weight: 700;
-}
-
-.cursor {
-  display: inline-block;
-  width: .7em;
-  height: 1.15em;
-  margin-left: .35em;
-  vertical-align: -.2em;
-  background: var(--green);
+.hero-mascot {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .features {
