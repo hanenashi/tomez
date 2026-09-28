@@ -9,7 +9,7 @@
 </head>
 <body>
   <header class="top">
-    <a class="brand" href="./"><img class="brand-icon" src="assets/tomez.png" alt="" aria-hidden="true"><strong>tomez</strong></a>
+    <a class="brand" href="./"><img class="brand-icon" src="assets/icon.png" alt="" aria-hidden="true"><strong>tomez</strong></a>
     <div class="langs">
       <button type="button" data-lang-button="en">EN</button><span>·</span><button type="button" data-lang-button="cs">CZ</button>
     </div>
@@ -32,13 +32,13 @@
       <p>tomez does not collect, transmit, sell, or share personal data.</p>
 
       <h2>This website</h2>
-      <p>This website is hosted with GitHub Pages. Standard web request information may therefore be processed by GitHub according to GitHub's own policies. This is separate from the tomez Android app.</p>
+      <p>This website is hosted with GitHub Pages. Standard web request information may therefore be processed by GitHub according to GitHub's own policies. This is separate from the tomez Android app. The site stores your language choice in your browser.</p>
 
       <h2>Contact</h2>
       <p>Questions or bug reports can be filed on the <a href="https://github.com/hanenashi/tomez">tomez GitHub repository</a>.</p>
     </section>
 
-    <section data-lang="cs">
+    <section data-lang="cs" lang="cs" hidden>
       <a class="back" href="./">← Domů</a>
       <h1>Soukromí</h1>
       <p><strong>Poslední aktualizace: 28. září 2026</strong></p>
@@ -54,26 +54,13 @@
       <p>tomez neshromažďuje, neodesílá, neprodává ani nesdílí osobní údaje.</p>
 
       <h2>Tento web</h2>
-      <p>Tento web je hostován pomocí GitHub Pages. GitHub proto může zpracovávat běžné údaje webových požadavků podle vlastních pravidel. To je oddělené od aplikace tomez pro Android.</p>
+      <p>Tento web je hostován pomocí GitHub Pages. GitHub proto může zpracovávat běžné údaje webových požadavků podle vlastních pravidel. To je oddělené od aplikace tomez pro Android. Web si v prohlížeči pamatuje zvolený jazyk.</p>
 
       <h2>Kontakt</h2>
       <p>Dotazy a hlášení chyb lze posílat přes <a href="https://github.com/hanenashi/tomez">repozitář tomez na GitHubu</a>.</p>
     </section>
   </main>
 
-  <script>
-    const blocks = [...document.querySelectorAll('[data-lang]')];
-    const buttons = [...document.querySelectorAll('[data-lang-button]')];
-    function setLang(lang) {
-      const chosen = lang === 'cs' ? 'cs' : 'en';
-      document.documentElement.lang = chosen;
-      blocks.forEach(el => el.hidden = el.dataset.lang !== chosen);
-      buttons.forEach(button => button.classList.toggle('active', button.dataset.langButton === chosen));
-      localStorage.setItem('tomez-lang', chosen);
-    }
-    buttons.forEach(button => button.addEventListener('click', () => setLang(button.dataset.langButton)));
-    const saved = localStorage.getItem('tomez-lang');
-    setLang(saved || (navigator.language.toLowerCase().startsWith('cs') ? 'cs' : 'en'));
-  </script>
+  <script src="language.js" defer></script>
 </body>
 </html>

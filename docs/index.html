@@ -4,89 +4,203 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#d9dcda">
-  <meta name="description" content="tomez — a tiny native Android plaintext editor.">
-  <title>tomez — tiny Android plaintext editor</title>
+  <meta name="description" content="tomez is a small Android plain text editor. Read, edit and save UTF-8 files. A short guide to scrolling, editing and changing text size.">
+  <title>tomez — Android text editor & quick help</title>
   <link rel="stylesheet" href="style.css">
+  <script src="language.js" defer>
+</script>
 </head>
 <body>
   <header class="top">
     <a class="brand" href="./" aria-label="tomez home">
-      <img class="brand-icon" src="assets/icon.png" alt="" aria-hidden="true">
-      <strong>tomez</strong>
-    </a>
-    <div class="langs" aria-label="Language">
-      <button type="button" data-lang-button="en">EN</button>
-      <span>·</span>
-      <button type="button" data-lang-button="cs">CZ</button>
-    </div>
+<img class="brand-icon" src="assets/icon.png" width="38" height="38" alt="">
+<strong>tomez</strong>
+</a>
+    <nav class="langs" aria-label="Language">
+<button type="button" data-lang-button="en" aria-pressed="true">EN</button>
+<span>·</span>
+<button type="button" data-lang-button="cs" aria-pressed="false">CZ</button>
+</nav>
   </header>
-
   <main>
-    <section class="hero">
-      <div class="copy" data-lang="en">
-        <p class="eyebrow">Plain text. Nothing hiding behind it.</p>
-        <h1>A tiny Android editor that stays out of the way.</h1>
-        <p class="lead">tomez is a lightweight native plaintext editor for Android: Unicode, simple file handling, a few fonts and themes, smooth scrolling, and very little else.</p>
-        <div class="actions">
-          <span class="button muted" aria-disabled="true">Google Play — coming soon</span>
-          <a class="button" href="https://github.com/hanenashi/tomez">GitHub</a>
-        </div>
-      </div>
-
-      <div class="copy" data-lang="cs">
-        <p class="eyebrow">Čistý text. Nic schovaného za ním.</p>
-        <h1>Malý editor pro Android, který nepřekáží.</h1>
-        <p class="lead">tomez je lehký nativní editor prostého textu pro Android: Unicode, jednoduchá práce se soubory, pár písem a motivů, plynulé posouvání — a skoro nic navíc.</p>
-        <div class="actions">
-          <span class="button muted" aria-disabled="true">Google Play — již brzy</span>
-          <a class="button" href="https://github.com/hanenashi/tomez">GitHub</a>
-        </div>
-      </div>
-
-      <aside class="card" aria-label="tomez mascot">
-        <img class="hero-mascot" src="assets/icon.png" alt="tomez mascot">
-      </aside>
-    </section>
-
-    <section class="features" data-lang="en">
-      <article><h2>Just text</h2><p>UTF-8 and Unicode, with no Markdown preview, rich text, account, cloud layer, or project system.</p></article>
-      <article><h2>Native files</h2><p>Open, save and save as through Android's system document picker.</p></article>
-      <article><h2>Quiet reading</h2><p>Scroll and inspect text without the keyboard jumping up. Tap the pencil when you actually want to type.</p></article>
-      <article><h2>Small by design</h2><p>Java, classic Android Views, and no external runtime dependencies.</p></article>
-    </section>
-
-    <section class="features" data-lang="cs">
-      <article><h2>Jen text</h2><p>UTF-8 a Unicode. Žádný Markdown preview, rich text, účet, cloudová vrstva ani projektový systém.</p></article>
-      <article><h2>Nativní soubory</h2><p>Otevírání, ukládání a Uložit jako přes systémový výběr dokumentů Androidu.</p></article>
-      <article><h2>Klidné čtení</h2><p>Text lze posouvat a číst bez vyskakující klávesnice. Tu otevřeš až tlačítkem tužky.</p></article>
-      <article><h2>Malý schválně</h2><p>Java, klasické Android Views a žádné externí runtime závislosti.</p></article>
-    </section>
+<div data-lang="en" lang="en">
+<section class="intro">
+<p class="eyebrow">tomez / Android</p>
+<h1>A plain text editor for Android.</h1>
+<p class="lead">Open a text file, read it, make changes, and save it. tomez works with one document at a time. It has a few fonts, four themes, and a text-size control.</p>
+<p class="spec">Android 8.0 or later · UTF-8 · Files up to 1 MiB</p>
+<div class="actions">
+<a href="https://github.com/hanenashi/tomez#build">Source & build instructions ↗</a>
+<a href="#help-en">Quick help ↓</a>
+</div>
+<p class="small">There is no Google Play listing yet. The GitHub README has instructions for building the APK.</p>
+</section>
+<section class="quick" id="help-en">
+<h2>TL;DR</h2>
+<ol>
+<li>Open the <b>⋮ menu → Open</b> and pick a file.</li>
+<li>Swipe to scroll. Tap the <b>pencil</b> to show or hide the keyboard.</li>
+<li>Use <b>⋮ → Text size</b> to preview a different size as you move the slider.</li>
+<li>Choose <b>⋮ → Save</b> to write your changes to the file.</li>
+</ol>
+<p>The dot next to the filename means there are unsaved changes. A recovery draft is kept on the device, but you still need to Save.</p>
+</section>
+<section class="guide" aria-label="Quick help">
+<article>
+<p class="eyebrow">01 / Read</p>
+<h2>Scroll without opening the keyboard.</h2>
+<p>Swipe up or down through the document. A flick keeps it moving after you lift your finger. Tap the icon between the pencil and ⋮ to toggle line wrapping. With wrapping off, swipe sideways to read long lines.</p>
+<figure>
+<a href="assets/reading.png" aria-label="A document in the Grey theme, with pencil, wrapping and menu buttons in the toolbar.">
+<img src="assets/reading.png" width="1080" height="2424" loading="lazy" alt="A document in the Grey theme, with pencil, wrapping and menu buttons in the toolbar.">
+</a>
+<figcaption>Tap or hold the filename to see the full file location.</figcaption>
+</figure>
+</article>
+<article>
+<p class="eyebrow">02 / Edit</p>
+<h2>Use the pencil when you want to type.</h2>
+<p>Tapping the text places the cursor. The pencil opens the keyboard at that position; tapping it again hides the keyboard. Hold a word to select it, then drag the handles. Android’s copy and paste controls are available.</p>
+<figure>
+<a href="assets/selection.png" aria-label="A selected word with Android’s Cut, Copy, Paste, Share and Select all controls.">
+<img src="assets/selection.png" width="1080" height="2424" loading="lazy" alt="A selected word with Android’s Cut, Copy, Paste, Share and Select all controls.">
+</a>
+<figcaption>Editing and reading use the same document view.</figcaption>
+</figure>
+</article>
+<article>
+<p class="eyebrow">03 / Appearance</p>
+<h2>Adjust the text while you read.</h2>
+<p>Open ⋮ for Font, Text size, Theme and Fullscreen. The size slider previews changes in the document behind the dialog. Apply keeps the new size; Cancel restores the previous size. You can also type a size into the number field.</p>
+<figure>
+<a href="assets/text-size.png" aria-label="The text-size dialog in the Green theme, with slider, number field, Cancel and Apply.">
+<img src="assets/text-size.png" width="1080" height="2424" loading="lazy" alt="The text-size dialog in the Green theme, with slider, number field, Cancel and Apply.">
+</a>
+<figcaption>This size-dialog screenshot is from an earlier build, before the wrap button was added.</figcaption>
+</figure>
+</article>
+</section>
+<p class="small">Tap a screenshot to open it at full size. Images are from earlier device checks.</p>
+<section class="reference">
+<div>
+<h2>File commands</h2>
+<dl>
+<dt>New</dt>
+<dd>Starts a blank Untitled document and opens the keyboard.</dd>
+<dt>Open</dt>
+<dd>Uses Android’s document picker to choose a file.</dd>
+<dt>Save</dt>
+<dd>Writes to the current file. For an Untitled document, asks where to save it.</dd>
+<dt>Save As</dt>
+<dd>Asks for a name and location. The saved copy becomes the current document.</dd>
+<dt>Close</dt>
+<dd>Returns to a blank Untitled document with the keyboard hidden.</dd>
+</dl>
+<p class="small">New, Open and Close ask what to do if you have unsaved changes.</p>
+</div>
+<div>
+<h2>A few limits</h2>
+<p>tomez edits UTF-8 plain text, including files with a UTF-8 byte-order mark. Markdown files open as text; there is no rendered preview. Files larger than 1 MiB and other text encodings are not supported. The app does not detect edits made to the same file by another app.</p>
+<p>Fonts: system sans, system serif and monospace. Themes: Light, Dark, Grey and Green. These settings change how text is displayed; they do not add formatting to the file.</p>
+</div>
+</section>
+</div>
+<div data-lang="cs" lang="cs" hidden>
+<section class="intro">
+<p class="eyebrow">tomez / Android</p>
+<h1>Editor prostého textu pro Android.</h1>
+<p class="lead">Otevři textový soubor, přečti ho, uprav a ulož. tomez pracuje vždy s jedním dokumentem. Nabízí několik písem, čtyři motivy a nastavení velikosti textu.</p>
+<p class="spec">Android 8.0 a novější · UTF-8 · Soubory do 1 MiB</p>
+<div class="actions">
+<a href="https://github.com/hanenashi/tomez#build">Zdrojový kód a sestavení APK ↗</a>
+<a href="#help-cs">Stručný návod ↓</a>
+</div>
+<p class="small">Aplikace zatím není na Google Play. Postup sestavení APK je v README na GitHubu.</p>
+</section>
+<section class="quick" id="help-cs">
+<h2>Ve zkratce</h2>
+<ol>
+<li>Otevři <b>nabídku ⋮ → Open</b> a vyber soubor.</li>
+<li>Tažením posouvej text. <b>Tužkou</b> zobrazíš nebo skryješ klávesnici.</li>
+<li>V <b>⋮ → Text size</b> měň velikost posuvníkem a sleduj náhled v dokumentu.</li>
+<li>Přes <b>⋮ → Save</b> ulož změny do souboru.</li>
+</ol>
+<p>Tečka vedle názvu souboru znamená neuložené změny. Aplikace ukládá místní koncept pro obnovení, ale soubor je pořád potřeba uložit přes Save.</p>
+</section>
+<section class="guide" aria-label="Stručný návod">
+<article>
+<p class="eyebrow">01 / Čtení</p>
+<h2>Posouvej text bez otevírání klávesnice.</h2>
+<p>Tažením nahoru nebo dolů se posouváš v dokumentu. Po rychlém švihnutí posun ještě pokračuje. Ikona mezi tužkou a ⋮ zapíná a vypíná zalamování řádků. Když je vypnuté, dlouhé řádky můžeš posouvat do stran.</p>
+<figure>
+<a href="assets/reading.png" aria-label="Dokument v šedém motivu s tlačítky tužky, zalamování a nabídky v horní liště.">
+<img src="assets/reading.png" width="1080" height="2424" loading="lazy" alt="Dokument v šedém motivu s tlačítky tužky, zalamování a nabídky v horní liště.">
+</a>
+<figcaption>Klepnutím nebo podržením názvu souboru zobrazíš celé umístění.</figcaption>
+</figure>
+</article>
+<article>
+<p class="eyebrow">02 / Úpravy</p>
+<h2>Když chceš psát, klepni na tužku.</h2>
+<p>Klepnutí do textu umístí kurzor. Tužka otevře klávesnici na této pozici; další klepnutí ji skryje. Podržením slova ho vybereš a úchyty upravíš rozsah výběru. Kopírování a vkládání funguje přes běžnou nabídku Androidu.</p>
+<figure>
+<a href="assets/selection.png" aria-label="Vybrané slovo s běžnými ovládacími prvky Androidu pro vyjmutí, kopírování a vložení.">
+<img src="assets/selection.png" width="1080" height="2424" loading="lazy" alt="Vybrané slovo s běžnými ovládacími prvky Androidu pro vyjmutí, kopírování a vložení.">
+</a>
+<figcaption>Čtení i úpravy probíhají ve stejném zobrazení dokumentu.</figcaption>
+</figure>
+</article>
+<article>
+<p class="eyebrow">03 / Vzhled</p>
+<h2>Uprav si zobrazení při čtení.</h2>
+<p>V nabídce ⋮ najdeš Font, Text size, Theme a Fullscreen. Posuvník velikosti mění náhled textu za dialogem. Apply novou velikost potvrdí, Cancel vrátí původní. Velikost můžeš také zadat číslem.</p>
+<figure>
+<a href="assets/text-size.png" aria-label="Dialog velikosti textu v zeleném motivu s posuvníkem, číselným polem a tlačítky Cancel a Apply.">
+<img src="assets/text-size.png" width="1080" height="2424" loading="lazy" alt="Dialog velikosti textu v zeleném motivu s posuvníkem, číselným polem a tlačítky Cancel a Apply.">
+</a>
+<figcaption>Snímek dialogu velikosti je ze starší verze, před přidáním tlačítka zalamování.</figcaption>
+</figure>
+</article>
+</section>
+<p class="small">Klepnutím otevřeš snímek v plné velikosti. Snímky pocházejí z dřívějšího testování na telefonu.</p>
+<section class="reference">
+<div>
+<h2>Práce se soubory</h2>
+<dl>
+<dt>New</dt>
+<dd>Vytvoří prázdný dokument Untitled a otevře klávesnici.</dd>
+<dt>Open</dt>
+<dd>Otevře systémový výběr souborů Androidu.</dd>
+<dt>Save</dt>
+<dd>Uloží aktuální soubor. U dokumentu Untitled se zeptá na umístění.</dd>
+<dt>Save As</dt>
+<dd>Zeptá se na název a umístění. Uložená kopie se stane aktuálním dokumentem.</dd>
+<dt>Close</dt>
+<dd>Vrátí se k prázdnému dokumentu Untitled se skrytou klávesnicí.</dd>
+</dl>
+<p class="small">Pokud máš neuložené změny, New, Open a Close se nejdřív zeptají, co s nimi.</p>
+</div>
+<div>
+<h2>Omezení</h2>
+<p>tomez upravuje prostý text v UTF-8, včetně souborů se značkou BOM. Markdown otevírá jako text, bez vykresleného náhledu. Soubory větší než 1 MiB a jiná kódování nejsou podporována. Aplikace nerozpozná změny, které ve stejném souboru provede jiná aplikace.</p>
+<p>Písma: systémové bezpatkové, patkové a monospace. Motivy: Light, Dark, Grey a Green. Nastavení mění jen zobrazení textu, ne formátování souboru.</p>
+</div>
+</section>
+</div>
   </main>
-
   <footer>
-    <span>tomez</span>
-    <nav>
-      <a href="privacy.html" data-lang="en">Privacy</a>
-      <a href="privacy.html" data-lang="cs">Soukromí</a>
-      <a href="https://github.com/hanenashi/tomez">Source</a>
-    </nav>
-  </footer>
-
-  <script>
-    const blocks = [...document.querySelectorAll('[data-lang]')];
-    const buttons = [...document.querySelectorAll('[data-lang-button]')];
-
-    function setLang(lang) {
-      const chosen = lang === 'cs' ? 'cs' : 'en';
-      document.documentElement.lang = chosen;
-      blocks.forEach(el => el.hidden = el.dataset.lang !== chosen);
-      buttons.forEach(button => button.classList.toggle('active', button.dataset.langButton === chosen));
-      localStorage.setItem('tomez-lang', chosen);
-    }
-
-    buttons.forEach(button => button.addEventListener('click', () => setLang(button.dataset.langButton)));
-    const saved = localStorage.getItem('tomez-lang');
-    setLang(saved || (navigator.language.toLowerCase().startsWith('cs') ? 'cs' : 'en'));
-  </script>
+<span>tomez</span>
+<nav>
+<a href="privacy.html">
+<span data-lang="en">Privacy</span>
+<span data-lang="cs" hidden>Soukromí</span>
+</a>
+<a href="https://github.com/hanenashi/tomez/issues">
+<span data-lang="en">Report a bug</span>
+<span data-lang="cs" hidden>Nahlásit chybu</span>
+</a>
+<a href="https://github.com/hanenashi/tomez">GitHub</a>
+</nav>
+</footer>
 </body>
 </html>
