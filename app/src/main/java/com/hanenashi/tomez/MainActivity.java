@@ -27,12 +27,14 @@ import android.text.TextWatcher;
 import android.text.TextUtils;
 import android.util.AtomicFile;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.ContextThemeWrapper;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -83,6 +85,7 @@ public class MainActivity extends Activity {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private EditText editor;
     private ScrollView documentScroll;
+    private HorizontalScrollView horizontalScroll;
     private TextView title;
     private ImageButton pencilButton;
     private ImageButton wrapButton;
@@ -204,17 +207,39 @@ public class MainActivity extends Activity {
         divider = new View(this);
         root.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
 
-        documentScroll = new ScrollView(this) {
+        documentScroll = new ScrollView(this);
+        horizontalScroll = new HorizontalScrollView(this) {
+            @Override
+            public boolean onInterceptTouchEvent(MotionEvent event) {
+                return !preferences.getBoolean("wrap_lines", true)
+                        && super.onInterceptTouchEvent(event);
+            }
+
+            @Override
+            protected void measureChildWithMargins(View child, int widthSpec, int widthUsed,
+                    int heightSpec, int heightUsed) {
+                if (!preferences.getBoolean("wrap_lines", true)) {
+                    super.measureChildWithMargins(child, widthSpec, widthUsed, heightSpec, heightUsed);
+                    return;
+                }
+                MarginLayoutParams params = (MarginLayoutParams) child.getLayoutParams();
+                int width = Math.max(0, MeasureSpec.getSize(widthSpec) - getPaddingLeft()
+                        - getPaddingRight() - params.leftMargin - params.rightMargin - widthUsed);
+                child.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+                        getChildMeasureSpec(heightSpec, getPaddingTop() + getPaddingBottom()
+                                + params.topMargin + params.bottomMargin + heightUsed, params.height));
+            }
+
             @Override
             public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
-                // A focused EditText can claim a diagonal swipe for cursor dragging.
-                // Wrapped text has no horizontal scrolling: let ScrollView keep
-                // detecting vertical drags, but respect drag-to-select gestures.
-                if (disallowIntercept && editor != null && !editor.hasSelection()
-                        && preferences.getBoolean("wrap_lines", true)) return;
+                // The containers own document panning; keep native drag-to-select.
+                if (disallowIntercept && editor != null && !editor.hasSelection()) return;
                 super.requestDisallowInterceptTouchEvent(disallowIntercept);
             }
         };
+        horizontalScroll.setFillViewport(true);
+        horizontalScroll.setHorizontalScrollBarEnabled(false);
+        horizontalScroll.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
         documentScroll.setFillViewport(true);
         documentScroll.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
         documentScroll.setVerticalScrollBarEnabled(true);
@@ -247,7 +272,8 @@ public class MainActivity extends Activity {
                 mainHandler.postDelayed(updateDraft, DRAFT_DELAY_MS);
             }
         });
-        documentScroll.addView(editor, new ScrollView.LayoutParams(-1, -2));
+        horizontalScroll.addView(editor, new HorizontalScrollView.LayoutParams(-2, -1));
+        documentScroll.addView(horizontalScroll, new ScrollView.LayoutParams(-1, -2));
         root.addView(documentScroll, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
     }
@@ -629,6 +655,7 @@ public class MainActivity extends Activity {
         editor.setHighlightColor(Color.argb(90, Color.red(accent), Color.green(accent), Color.blue(accent)));
         if (Build.VERSION.SDK_INT >= 29) {
             documentScroll.setEdgeEffectColor(accent);
+            horizontalScroll.setEdgeEffectColor(accent);
             GradientDrawable scrollThumb = new GradientDrawable();
             scrollThumb.setColor(Color.argb(180, Color.red(muted), Color.green(muted), Color.blue(muted)));
             scrollThumb.setCornerRadius(dp(3));
@@ -931,6 +958,7 @@ public class MainActivity extends Activity {
         editor.setText(text);
         editor.setSelection(0);
         documentScroll.scrollTo(0, 0);
+        horizontalScroll.scrollTo(0, 0);
         suppressChanges = false;
         savedText = text;
         dirty = false;
@@ -949,7 +977,8 @@ public class MainActivity extends Activity {
         boolean wrap = !preferences.getBoolean("wrap_lines", true);
         preferences.edit().putBoolean("wrap_lines", wrap).apply();
         editor.setHorizontallyScrolling(!wrap);
-        if (wrap) editor.scrollTo(0, editor.getScrollY());
+        editor.scrollTo(0, 0);
+        horizontalScroll.scrollTo(0, 0);
         updateWrapButton();
     }
 
