@@ -33,6 +33,8 @@ The document stays visible in one EditText. Tap or scroll without opening the ke
 
 ## Build
 
+The first public debug APK is available in the [0.3.13 release](https://github.com/hanenashi/tomez/releases/tag/v0.3.13). It is signed with the development key and published as a prerelease for testing. Requires Android 8.0 or later.
+
 Install the Android SDK (platform 35) and a JDK 17 or newer, then run:
 
 ```sh
