@@ -204,7 +204,17 @@ public class MainActivity extends Activity {
         divider = new View(this);
         root.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
 
-        documentScroll = new ScrollView(this);
+        documentScroll = new ScrollView(this) {
+            @Override
+            public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+                // A focused EditText can claim a diagonal swipe for cursor dragging.
+                // Wrapped text has no horizontal scrolling: let ScrollView keep
+                // detecting vertical drags, but respect drag-to-select gestures.
+                if (disallowIntercept && editor != null && !editor.hasSelection()
+                        && preferences.getBoolean("wrap_lines", true)) return;
+                super.requestDisallowInterceptTouchEvent(disallowIntercept);
+            }
+        };
         documentScroll.setFillViewport(true);
         documentScroll.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
         documentScroll.setVerticalScrollBarEnabled(true);
