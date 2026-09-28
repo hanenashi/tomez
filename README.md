@@ -11,7 +11,8 @@ A small native Android plaintext editor written in Java with Android Views and n
 - System sans, system serif, and monospace fonts; a text-size slider with custom entry; light, dark, grey, and green themes
 - A fullscreen toggle; appearance and fullscreen choices saved across launches
 - One native EditText for reading and editing, inside a platform ScrollView for fling, edge feedback, and a thin fading scrollbar on long documents; scrolling and tapping text do not open the keyboard
-- Tap the pencil button to open the keyboard; native cursor, selection, copy/paste, and undo remain available
+- Tap the pencil button to show or hide the keyboard; native cursor, selection, copy/paste, and undo remain available
+- Rotating the screen keeps the current document, cursor, and scroll position
 - Filename and unsaved marker in the toolbar; tap or long-press it for the full location in a matching panel
 - Current font, size, and theme shown in the menu; matching compact font, theme, and text-size dialogs
 - Version and GitHub link at the bottom of the overflow menu
@@ -19,7 +20,7 @@ A small native Android plaintext editor written in Java with Android Views and n
 
 The editor accepts files up to 1 MiB. Files that are not valid UTF-8 are rejected without changing the open document. Save As makes the new file the current document. The recovery draft is local to the app and is cleared after a successful save or explicit discard.
 
-The document stays visible in one EditText. Tap or scroll without opening the keyboard; press the pencil when ready to type. New opens the keyboard for a blank document. Tap or long-press the filename to see its complete location, including a provider URI when no filesystem path is available. The text-size slider covers 10–40 sp; the number field accepts 8–96 sp. Size changes preview in the document behind the dialog; Cancel restores the saved size. Fullscreen hides Android's status and navigation bars. Swipe from an edge to reveal them briefly, or turn Fullscreen off in the overflow menu.
+The document stays visible in one EditText. Tap or scroll without opening the keyboard; press the pencil to show or hide it. New opens the keyboard for a blank document. Tap or long-press the filename to see its complete location, including a provider URI when no filesystem path is available. The text-size slider covers 10–40 sp; the number field accepts 8–96 sp. Size changes preview in the document behind the dialog; Cancel restores the saved size. Fullscreen hides Android's status and navigation bars. Swipe from an edge to reveal them briefly, or turn Fullscreen off in the overflow menu.
 
 ## Build
 

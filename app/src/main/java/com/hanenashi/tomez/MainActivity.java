@@ -7,8 +7,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
@@ -97,12 +99,24 @@ public class MainActivity extends Activity {
     private boolean dirty;
     private boolean suppressChanges;
     private boolean busy;
+    private boolean keyboardRequestPending;
     private int menuSurface;
     private int menuForeground;
     private int menuMuted;
     private int menuLine;
     private int menuAccent;
     private Runnable afterSave;
+    private final Runnable showKeyboardRequest = () -> {
+        keyboardRequestPending = false;
+        try {
+            if (editor.hasFocus() && editor.hasWindowFocus())
+                ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
+                        .showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT);
+        } finally {
+            // Keep later taps and scrolls quiet after the keyboard is dismissed.
+            editor.setShowSoftInputOnFocus(false);
+        }
+    };
     private final Runnable updateDraft = () -> {
         if (dirty) saveDraft();
         else clearDraft();
@@ -120,6 +134,13 @@ public class MainActivity extends Activity {
         restoreDraft();
         applyAppearance();
         updateTitle();
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration configuration) {
+        super.onConfigurationChanged(configuration);
+        root.requestApplyInsets();
+        applySystemUi();
     }
 
     private void buildUi() {
@@ -159,8 +180,8 @@ public class MainActivity extends Activity {
         pencilButton.setImageResource(R.drawable.ic_edit);
         pencilButton.setPadding(dp(12), dp(12), dp(12), dp(12));
         pencilButton.setBackgroundColor(Color.TRANSPARENT);
-        pencilButton.setContentDescription("Show keyboard for editing");
-        pencilButton.setOnClickListener(view -> showKeyboard());
+        pencilButton.setContentDescription("Show or hide keyboard");
+        pencilButton.setOnClickListener(view -> toggleKeyboard());
         toolbarRow.addView(pencilButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
 
         menuButton = new ImageButton(this);
@@ -214,8 +235,7 @@ public class MainActivity extends Activity {
     }
 
     private void showFileLocation() {
-        ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
-                .hideSoftInputFromWindow(editor.getWindowToken(), 0);
+        hideKeyboard();
         Context context = themedContext();
         LinearLayout panel = menuPanel(context);
         AlertDialog dialog = new AlertDialog.Builder(context).setView(panel).create();
@@ -243,8 +263,7 @@ public class MainActivity extends Activity {
     }
 
     private void showMenu() {
-        ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
-                .hideSoftInputFromWindow(editor.getWindowToken(), 0);
+        hideKeyboard();
         Context context = themedContext();
         LinearLayout panel = menuPanel(context);
         AlertDialog dialog = new AlertDialog.Builder(context).setView(panel).create();
@@ -681,9 +700,7 @@ public class MainActivity extends Activity {
     }
 
     private void closeDocument() {
-        editor.setShowSoftInputOnFocus(false);
-        ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
-                .hideSoftInputFromWindow(editor.getWindowToken(), 0);
+        hideKeyboard();
         clearDocument();
         root.setFocusableInTouchMode(true);
         root.requestFocus();
@@ -755,8 +772,7 @@ public class MainActivity extends Activity {
                     hasBom = opened.hasBom;
                     setEditorText(opened.text);
                     clearDraft();
-                    ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
-                            .hideSoftInputFromWindow(editor.getWindowToken(), 0);
+                    hideKeyboard();
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
@@ -916,18 +932,34 @@ public class MainActivity extends Activity {
     }
 
     private void showKeyboard() {
+        editor.removeCallbacks(showKeyboardRequest);
+        keyboardRequestPending = true;
         editor.setShowSoftInputOnFocus(true);
         editor.requestFocus();
-        editor.postDelayed(() -> {
-            try {
-                if (editor.hasFocus() && editor.hasWindowFocus())
-                    ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
-                            .showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT);
-            } finally {
-                // Keep later taps and scrolls quiet after the keyboard is dismissed.
-                editor.setShowSoftInputOnFocus(false);
-            }
-        }, 250);
+        editor.postDelayed(showKeyboardRequest, 250);
+    }
+
+    private void toggleKeyboard() {
+        if (keyboardRequestPending || isKeyboardVisible()) hideKeyboard();
+        else showKeyboard();
+    }
+
+    private void hideKeyboard() {
+        editor.removeCallbacks(showKeyboardRequest);
+        keyboardRequestPending = false;
+        editor.setShowSoftInputOnFocus(false);
+        ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
+                .hideSoftInputFromWindow(editor.getWindowToken(), 0);
+    }
+
+    private boolean isKeyboardVisible() {
+        if (Build.VERSION.SDK_INT >= 30) {
+            WindowInsets insets = root.getRootWindowInsets();
+            return insets != null && insets.isVisible(WindowInsets.Type.ime());
+        }
+        Rect visible = new Rect();
+        root.getWindowVisibleDisplayFrame(visible);
+        return root.getRootView().getHeight() - visible.bottom > dp(150);
     }
 
     private void showError(String title, Exception error) {
@@ -953,6 +985,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        editor.removeCallbacks(showKeyboardRequest);
         io.shutdown();
         super.onDestroy();
     }
