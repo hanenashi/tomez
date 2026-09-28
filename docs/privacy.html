@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#d9dcda">
+  <title>tomez — Privacy</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="./"><span class="mark" aria-hidden="true"><span>tz</span></span><strong>tomez</strong></a>
+    <div class="langs">
+      <button type="button" data-lang-button="en">EN</button><span>·</span><button type="button" data-lang-button="cs">CZ</button>
+    </div>
+  </header>
+
+  <main class="privacy">
+    <section data-lang="en">
+      <a class="back" href="./">← Home</a>
+      <h1>Privacy</h1>
+      <p><strong>Last updated: 28 September 2026</strong></p>
+      <p>tomez is designed as a local plaintext editor. The Android app does not include advertising, analytics, user accounts, telemetry, or its own network functionality.</p>
+
+      <h2>Files</h2>
+      <p>Files are opened and saved through Android's system document picker. tomez only accesses documents that you choose. Where supported, Android may grant the app persistent access to a selected document so it can be saved again later.</p>
+
+      <h2>Recovery draft</h2>
+      <p>When a document has unsaved changes, tomez may store a recovery draft in the app's private local storage. This draft is used only for restoring unsaved work and is removed after a successful save or explicit discard.</p>
+
+      <h2>Data collection</h2>
+      <p>tomez does not collect, transmit, sell, or share personal data.</p>
+
+      <h2>This website</h2>
+      <p>This website is hosted with GitHub Pages. Standard web request information may therefore be processed by GitHub according to GitHub's own policies. This is separate from the tomez Android app.</p>
+
+      <h2>Contact</h2>
+      <p>Questions or bug reports can be filed on the <a href="https://github.com/hanenashi/tomez">tomez GitHub repository</a>.</p>
+    </section>
+
+    <section data-lang="cs">
+      <a class="back" href="./">← Domů</a>
+      <h1>Soukromí</h1>
+      <p><strong>Poslední aktualizace: 28. září 2026</strong></p>
+      <p>tomez je navržen jako lokální editor prostého textu. Aplikace pro Android neobsahuje reklamy, analytiku, uživatelské účty, telemetrii ani vlastní síťové funkce.</p>
+
+      <h2>Soubory</h2>
+      <p>Soubory se otevírají a ukládají přes systémový výběr dokumentů Androidu. tomez přistupuje pouze k dokumentům, které sami vyberete. Pokud to Android a poskytovatel souboru dovolí, může aplikace získat trvalé oprávnění k vybranému dokumentu, aby jej bylo možné později znovu uložit.</p>
+
+      <h2>Záchranný koncept</h2>
+      <p>Pokud dokument obsahuje neuložené změny, tomez může uložit záchranný koncept do soukromého lokálního úložiště aplikace. Slouží pouze k obnovení neuložené práce a po úspěšném uložení nebo výslovném zahození změn se odstraní.</p>
+
+      <h2>Sběr dat</h2>
+      <p>tomez neshromažďuje, neodesílá, neprodává ani nesdílí osobní údaje.</p>
+
+      <h2>Tento web</h2>
+      <p>Tento web je hostován pomocí GitHub Pages. GitHub proto může zpracovávat běžné údaje webových požadavků podle vlastních pravidel. To je oddělené od aplikace tomez pro Android.</p>
+
+      <h2>Kontakt</h2>
+      <p>Dotazy a hlášení chyb lze posílat přes <a href="https://github.com/hanenashi/tomez">repozitář tomez na GitHubu</a>.</p>
+    </section>
+  </main>
+
+  <script>
+    const blocks = [...document.querySelectorAll('[data-lang]')];
+    const buttons = [...document.querySelectorAll('[data-lang-button]')];
+    function setLang(lang) {
+      const chosen = lang === 'cs' ? 'cs' : 'en';
+      document.documentElement.lang = chosen;
+      blocks.forEach(el => el.hidden = el.dataset.lang !== chosen);
+      buttons.forEach(button => button.classList.toggle('active', button.dataset.langButton === chosen));
+      localStorage.setItem('tomez-lang', chosen);
+    }
+    buttons.forEach(button => button.addEventListener('click', () => setLang(button.dataset.langButton)));
+    const saved = localStorage.getItem('tomez-lang');
+    setLang(saved || (navigator.language.toLowerCase().startsWith('cs') ? 'cs' : 'en'));
+  </script>
+</body>
+</html>

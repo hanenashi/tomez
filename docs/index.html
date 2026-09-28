@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#d9dcda">
+  <meta name="description" content="tomez — a tiny native Android plaintext editor.">
+  <title>tomez — tiny Android plaintext editor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="./" aria-label="tomez home">
+      <span class="mark" aria-hidden="true"><span>tz</span></span>
+      <strong>tomez</strong>
+    </a>
+    <div class="langs" aria-label="Language">
+      <button type="button" data-lang-button="en">EN</button>
+      <span>·</span>
+      <button type="button" data-lang-button="cs">CZ</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="copy" data-lang="en">
+        <p class="eyebrow">Plain text. Nothing hiding behind it.</p>
+        <h1>A tiny Android editor that stays out of the way.</h1>
+        <p class="lead">tomez is a lightweight native plaintext editor for Android: Unicode, simple file handling, a few fonts and themes, smooth scrolling, and very little else.</p>
+        <div class="actions">
+          <span class="button muted" aria-disabled="true">Google Play — coming soon</span>
+          <a class="button" href="https://github.com/hanenashi/tomez">GitHub</a>
+        </div>
+      </div>
+
+      <div class="copy" data-lang="cs">
+        <p class="eyebrow">Čistý text. Nic schovaného za ním.</p>
+        <h1>Malý editor pro Android, který nepřekáží.</h1>
+        <p class="lead">tomez je lehký nativní editor prostého textu pro Android: Unicode, jednoduchá práce se soubory, pár písem a motivů, plynulé posouvání — a skoro nic navíc.</p>
+        <div class="actions">
+          <span class="button muted" aria-disabled="true">Google Play — již brzy</span>
+          <a class="button" href="https://github.com/hanenashi/tomez">GitHub</a>
+        </div>
+      </div>
+
+      <aside class="card" aria-label="tomez">
+        <div class="hatstripe"></div>
+        <div class="mini-logo">tz</div>
+        <div class="terminal">
+          <span>tomez</span><span class="cursor"></span>
+        </div>
+      </aside>
+    </section>
+
+    <section class="features" data-lang="en">
+      <article><h2>Just text</h2><p>UTF-8 and Unicode, with no Markdown preview, rich text, account, cloud layer, or project system.</p></article>
+      <article><h2>Native files</h2><p>Open, save and save as through Android's system document picker.</p></article>
+      <article><h2>Quiet reading</h2><p>Scroll and inspect text without the keyboard jumping up. Tap the pencil when you actually want to type.</p></article>
+      <article><h2>Small by design</h2><p>Java, classic Android Views, and no external runtime dependencies.</p></article>
+    </section>
+
+    <section class="features" data-lang="cs">
+      <article><h2>Jen text</h2><p>UTF-8 a Unicode. Žádný Markdown preview, rich text, účet, cloudová vrstva ani projektový systém.</p></article>
+      <article><h2>Nativní soubory</h2><p>Otevírání, ukládání a Uložit jako přes systémový výběr dokumentů Androidu.</p></article>
+      <article><h2>Klidné čtení</h2><p>Text lze posouvat a číst bez vyskakující klávesnice. Tu otevřeš až tlačítkem tužky.</p></article>
+      <article><h2>Malý schválně</h2><p>Java, klasické Android Views a žádné externí runtime závislosti.</p></article>
+    </section>
+  </main>
+
+  <footer>
+    <span>tomez</span>
+    <nav>
+      <a href="privacy.html" data-lang="en">Privacy</a>
+      <a href="privacy.html" data-lang="cs">Soukromí</a>
+      <a href="https://github.com/hanenashi/tomez">Source</a>
+    </nav>
+  </footer>
+
+  <script>
+    const blocks = [...document.querySelectorAll('[data-lang]')];
+    const buttons = [...document.querySelectorAll('[data-lang-button]')];
+
+    function setLang(lang) {
+      const chosen = lang === 'cs' ? 'cs' : 'en';
+      document.documentElement.lang = chosen;
+      blocks.forEach(el => el.hidden = el.dataset.lang !== chosen);
+      buttons.forEach(button => button.classList.toggle('active', button.dataset.langButton === chosen));
+      localStorage.setItem('tomez-lang', chosen);
+    }
+
+    buttons.forEach(button => button.addEventListener('click', () => setLang(button.dataset.langButton)));
+    const saved = localStorage.getItem('tomez-lang');
+    setLang(saved || (navigator.language.toLowerCase().startsWith('cs') ? 'cs' : 'en'));
+  </script>
+</body>
+</html>
