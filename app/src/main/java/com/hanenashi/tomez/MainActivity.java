@@ -110,6 +110,7 @@ public class MainActivity extends Activity {
     private int menuLine;
     private int menuAccent;
     private Runnable afterSave;
+    private AlertDialog discardDialog;
     private final Runnable showKeyboardRequest = () -> {
         keyboardRequestPending = false;
         try {
@@ -138,6 +139,33 @@ public class MainActivity extends Activity {
         restoreDraft();
         applyAppearance();
         updateTitle();
+        handleOpenIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        handleOpenIntent(intent);
+    }
+
+    private void handleOpenIntent(Intent intent) {
+        if (intent == null || (!Intent.ACTION_VIEW.equals(intent.getAction())
+                && !Intent.ACTION_EDIT.equals(intent.getAction()))) return;
+        // Consume the request so Activity recreation cannot reopen a discarded file.
+        intent.setAction(Intent.ACTION_MAIN);
+        setIntent(intent);
+        Uri uri = intent.getData();
+        if (uri == null || (!"content".equals(uri.getScheme())
+                && !"file".equals(uri.getScheme()))) return;
+        if (busy || afterSave != null) {
+            Toast.makeText(this, "Finish the current file operation, then open this file again.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        confirmDiscard(() -> {
+            persistPermission(uri, intent.getFlags());
+            open(uri);
+        });
     }
 
     @Override
@@ -723,11 +751,12 @@ public class MainActivity extends Activity {
     }
 
     private void confirmDiscard(Runnable action) {
+        if (discardDialog != null) discardDialog.dismiss();
         if (!dirty) {
             action.run();
             return;
         }
-        new AlertDialog.Builder(themedContext())
+        discardDialog = new AlertDialog.Builder(themedContext())
                 .setTitle("Unsaved changes")
                 .setMessage("Save changes to " + documentName + "?")
                 .setPositiveButton("Save", (dialog, which) -> save(action))
@@ -737,6 +766,7 @@ public class MainActivity extends Activity {
                     action.run();
                 })
                 .setNegativeButton("Cancel", null)
+                .setOnDismissListener(dialog -> discardDialog = null)
                 .show();
     }
 
@@ -797,7 +827,7 @@ public class MainActivity extends Activity {
 
     private void persistPermission(Uri uri, int flags) {
         int granted = flags & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        if (granted == 0) return;
+        if (granted == 0 || (flags & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) == 0) return;
         try {
             getContentResolver().takePersistableUriPermission(uri, granted);
         } catch (SecurityException ignored) {
@@ -884,7 +914,10 @@ public class MainActivity extends Activity {
                 // Do not mark the document clean until it finishes.
             } catch (Exception error) {
                 Exception visibleError = error instanceof CharacterCodingException
-                        ? new IOException("Text contains invalid Unicode.", error) : error;
+                        ? new IOException("Text contains invalid Unicode.", error)
+                        : error instanceof SecurityException
+                        ? new IOException("This app was not given permission to write to the file. "
+                                + "Use Save As to save a copy.", error) : error;
                 runOnUiThread(() -> {
                     setBusy(false);
                     afterSave = null;
@@ -910,6 +943,8 @@ public class MainActivity extends Activity {
     }
 
     private String queryName(Uri uri, String fallback) {
+        if ("file".equals(uri.getScheme()) && uri.getLastPathSegment() != null)
+            return uri.getLastPathSegment();
         try (Cursor cursor = getContentResolver().query(uri,
                 new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
             if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0))
