@@ -1,7 +1,7 @@
 # tomez
 
 <p align="center">
-  <img src="assets/tomez.png" width="220" alt="tomez">
+  <img src="assets/icon.png" width="220" alt="tomez">
 </p>
 
 <p align="center">
