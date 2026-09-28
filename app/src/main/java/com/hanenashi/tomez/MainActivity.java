@@ -214,11 +214,32 @@ public class MainActivity extends Activity {
     }
 
     private void showFileLocation() {
-        new AlertDialog.Builder(themedContext())
-                .setTitle(documentName)
-                .setMessage(documentPath)
-                .setPositiveButton("OK", null)
-                .show();
+        ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
+                .hideSoftInputFromWindow(editor.getWindowToken(), 0);
+        Context context = themedContext();
+        LinearLayout panel = menuPanel(context);
+        AlertDialog dialog = new AlertDialog.Builder(context).setView(panel).create();
+        menuHeading(panel, "File location");
+
+        TextView path = new TextView(context);
+        path.setText(documentPath);
+        path.setTextSize(14);
+        path.setTextColor(menuForeground);
+        path.setTextIsSelectable(true);
+        path.setPadding(dp(8), dp(12), dp(8), dp(16));
+        panel.addView(path);
+
+        menuDivider(panel);
+        TextView done = new TextView(context);
+        done.setText("Done");
+        done.setTextSize(14);
+        done.setTextColor(menuAccent);
+        done.setGravity(Gravity.CENTER);
+        done.setOnClickListener(view -> dialog.dismiss());
+        LinearLayout.LayoutParams doneParams = new LinearLayout.LayoutParams(dp(72), dp(48));
+        doneParams.gravity = Gravity.END;
+        panel.addView(done, doneParams);
+        showPanelDialog(dialog);
     }
 
     private void showMenu() {
@@ -235,7 +256,7 @@ public class MainActivity extends Activity {
         fileAction(files, "Open", dialog, () -> confirmDiscard(this::launchOpen));
         fileAction(files, "Save", dialog, () -> save(null));
         fileAction(files, "Save As", dialog, this::launchCreate);
-        fileAction(files, "Close", dialog, () -> confirmDiscard(this::newDocument));
+        fileAction(files, "Close", dialog, () -> confirmDiscard(this::closeDocument));
 
         menuDivider(panel);
         int font = preferences.getInt("font", FONT_SANS);
@@ -655,13 +676,26 @@ public class MainActivity extends Activity {
     }
 
     private void newDocument() {
+        clearDocument();
+        showKeyboard();
+    }
+
+    private void closeDocument() {
+        editor.setShowSoftInputOnFocus(false);
+        ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
+                .hideSoftInputFromWindow(editor.getWindowToken(), 0);
+        clearDocument();
+        root.setFocusableInTouchMode(true);
+        root.requestFocus();
+    }
+
+    private void clearDocument() {
         documentUri = null;
         documentName = "Untitled";
         documentPath = "Untitled";
         hasBom = false;
         setEditorText("");
         clearDraft();
-        showKeyboard();
     }
 
     private void launchOpen() {

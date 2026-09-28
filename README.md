@@ -4,7 +4,7 @@ A small native Android plaintext editor written in Java with Android Views and n
 
 ## What works
 
-- New, Open, Save, Save As, and Close from the overflow menu
+- New, Open, Save, Save As, and Close from the overflow menu; New opens the keyboard, while Close returns to a quiet blank document
 - Android's document picker for opening and creating files
 - Unsaved-change prompts before New, Open, Close, or exiting with Back
 - UTF-8 text, including Unicode and UTF-8 files with a byte-order mark
@@ -12,7 +12,7 @@ A small native Android plaintext editor written in Java with Android Views and n
 - A fullscreen toggle; appearance and fullscreen choices saved across launches
 - One native EditText for reading and editing, inside a platform ScrollView for fling, edge feedback, and a thin fading scrollbar on long documents; scrolling and tapping text do not open the keyboard
 - Tap the pencil button to open the keyboard; native cursor, selection, copy/paste, and undo remain available
-- Filename and unsaved marker in the toolbar; tap or long-press it for the full location
+- Filename and unsaved marker in the toolbar; tap or long-press it for the full location in a matching panel
 - Current font, size, and theme shown in the menu; matching compact font, theme, and text-size dialogs
 - Version and GitHub link at the bottom of the overflow menu
 - An internal recovery draft for unsaved edits, written after a short pause in typing and when the app goes into the background
