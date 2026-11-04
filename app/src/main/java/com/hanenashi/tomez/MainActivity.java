@@ -111,12 +111,17 @@ public class MainActivity extends Activity {
     private int menuAccent;
     private Runnable afterSave;
     private AlertDialog discardDialog;
+    private final Runnable revealCursor = () -> {
+        if (editor != null && editor.hasFocus())
+            editor.bringPointIntoView(Math.max(0, editor.getSelectionEnd()));
+    };
     private final Runnable showKeyboardRequest = () -> {
         keyboardRequestPending = false;
         try {
             if (editor.hasFocus() && editor.hasWindowFocus())
                 ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
                         .showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT);
+            if (Build.VERSION.SDK_INT < 30) editor.postDelayed(revealCursor, 350);
         } finally {
             // Keep later taps and scrolls quiet after the keyboard is dismissed.
             editor.setShowSoftInputOnFocus(false);
@@ -181,7 +186,17 @@ public class MainActivity extends Activity {
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             if (Build.VERSION.SDK_INT >= 30) {
                 android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
-                view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+                boolean keyboardVisible = insets.isVisible(WindowInsets.Type.ime());
+                int bottom = keyboardVisible
+                        ? Math.max(bars.bottom, insets.getInsets(WindowInsets.Type.ime()).bottom + dp(24))
+                        : bars.bottom;
+                view.setPadding(bars.left, bars.top, bars.right, bottom);
+                if (keyboardVisible) {
+                    view.removeCallbacks(revealCursor);
+                    view.post(revealCursor);
+                } else {
+                    view.removeCallbacks(revealCursor);
+                }
             } else {
                 view.setPadding(insets.getSystemWindowInsetLeft(),
                         insets.getSystemWindowInsetTop(),
@@ -1086,6 +1101,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         editor.removeCallbacks(showKeyboardRequest);
+        root.removeCallbacks(revealCursor);
+        editor.removeCallbacks(revealCursor);
         io.shutdown();
         super.onDestroy();
     }
