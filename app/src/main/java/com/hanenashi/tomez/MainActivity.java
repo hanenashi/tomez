@@ -79,6 +79,7 @@ public class MainActivity extends Activity {
     private static final int OLD_THEME_BLACK = 32;
     private static final int THEME_GREY = 33;
     private static final int THEME_GREEN = 34;
+    private static final int THEME_TOMEZ = 35;
     private static final int MIN_SLIDER_SIZE = 10;
     private static final int MAX_SLIDER_SIZE = 40;
     private static final int MIN_CUSTOM_SIZE = 8;
@@ -417,7 +418,8 @@ public class MainActivity extends Activity {
                 dialog, this::showTextSizeDialog);
         int theme = preferences.getInt("theme", THEME_LIGHT);
         String themeName = theme == THEME_DARK ? "Dark" : theme == THEME_GREY ? "Grey"
-                : theme == THEME_GREEN ? "Green / Matrix" : "Light";
+                : theme == THEME_GREEN ? "Green / Matrix"
+                : theme == THEME_TOMEZ ? "tomez" : "Light";
         settingRow(panel, "Theme", themeName, dialog, this::showThemeChooser);
 
         LinearLayout fullscreenRow = new LinearLayout(context);
@@ -539,8 +541,10 @@ public class MainActivity extends Activity {
     }
 
     private void showThemeChooser() {
-        showChoiceDialog("Theme", "theme", new String[]{"Light", "Dark", "Grey", "Green / Matrix"},
-                new int[]{THEME_LIGHT, THEME_DARK, THEME_GREY, THEME_GREEN}, THEME_LIGHT);
+        showChoiceDialog("Theme", "theme",
+                new String[]{"Light", "Dark", "Grey", "Green / Matrix", "tomez"},
+                new int[]{THEME_LIGHT, THEME_DARK, THEME_GREY, THEME_GREEN, THEME_TOMEZ},
+                THEME_LIGHT);
     }
 
     private void showChoiceDialog(String title, String key, String[] labels,
@@ -716,6 +720,14 @@ public class MainActivity extends Activity {
                 line = Color.rgb(31, 94, 43);
                 accent = Color.rgb(86, 255, 113);
                 break;
+            case THEME_TOMEZ:
+                background = Color.rgb(255, 248, 232);
+                surface = Color.rgb(247, 233, 198);
+                foreground = Color.rgb(36, 27, 24);
+                muted = Color.rgb(116, 89, 68);
+                line = Color.rgb(214, 188, 125);
+                accent = Color.rgb(8, 106, 88);
+                break;
             default:
                 background = Color.WHITE;
                 surface = Color.rgb(247, 247, 247);
@@ -730,8 +742,8 @@ public class MainActivity extends Activity {
         menuForeground = foreground;
         menuMuted = muted;
         menuLine = line;
-        menuAccent = accent;
-        toolbar.setBackgroundColor(surface);
+        menuAccent = theme == THEME_TOMEZ ? Color.rgb(170, 43, 47) : accent;
+        toolbar.setBackgroundColor(theme == THEME_TOMEZ ? Color.rgb(247, 202, 57) : surface);
         divider.setBackgroundColor(line);
         title.setTextColor(foreground);
         pencilButton.setImageTintList(ColorStateList.valueOf(foreground));
@@ -760,12 +772,14 @@ public class MainActivity extends Activity {
 
     private void applySystemUi() {
         int theme = preferences.getInt("theme", THEME_LIGHT);
-        boolean lightBars = theme == THEME_LIGHT || theme == THEME_GREY;
+        boolean lightBars = theme == THEME_LIGHT || theme == THEME_GREY || theme == THEME_TOMEZ;
         boolean fullscreen = preferences.getBoolean("fullscreen", false);
-        int surface = theme == THEME_GREEN ? Color.rgb(9, 31, 13)
+        int surface = theme == THEME_TOMEZ ? Color.rgb(247, 202, 57)
+                : theme == THEME_GREEN ? Color.rgb(9, 31, 13)
                 : theme == THEME_DARK ? Color.rgb(38, 40, 44)
                 : theme == THEME_GREY ? Color.rgb(195, 200, 197) : Color.rgb(247, 247, 247);
-        int background = theme == THEME_GREEN ? Color.rgb(5, 18, 8)
+        int background = theme == THEME_TOMEZ ? Color.rgb(255, 248, 232)
+                : theme == THEME_GREEN ? Color.rgb(5, 18, 8)
                 : theme == THEME_DARK ? Color.rgb(28, 30, 34)
                 : theme == THEME_GREY ? Color.rgb(218, 221, 219) : Color.WHITE;
         getWindow().setStatusBarColor(surface);
@@ -804,7 +818,8 @@ public class MainActivity extends Activity {
 
     private Context themedContext() {
         int theme = preferences.getInt("theme", THEME_LIGHT);
-        return new ContextThemeWrapper(this, theme == THEME_LIGHT || theme == THEME_GREY
+        return new ContextThemeWrapper(this,
+                theme == THEME_LIGHT || theme == THEME_GREY || theme == THEME_TOMEZ
                 ? android.R.style.Theme_Material_Light_NoActionBar
                 : android.R.style.Theme_Material_NoActionBar);
     }
