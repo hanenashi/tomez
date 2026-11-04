@@ -26,7 +26,10 @@ import android.text.InputType;
 import android.text.TextWatcher;
 import android.text.TextUtils;
 import android.util.AtomicFile;
+import android.view.ActionMode;
 import android.view.Gravity;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
@@ -293,7 +296,48 @@ public class MainActivity extends Activity {
         documentScroll.setScrollBarDefaultDelayBeforeFade(600);
         documentScroll.setScrollBarFadeDuration(350);
 
-        editor = new EditText(this);
+        editor = new EditText(this) {
+            @Override
+            public ActionMode startActionMode(ActionMode.Callback callback, int type) {
+                if (type != ActionMode.TYPE_FLOATING || !(callback instanceof ActionMode.Callback2))
+                    return super.startActionMode(callback, type);
+
+                ActionMode.Callback2 nativeCallback = (ActionMode.Callback2) callback;
+                return super.startActionMode(new ActionMode.Callback2() {
+                    @Override
+                    public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+                        return nativeCallback.onCreateActionMode(mode, menu);
+                    }
+
+                    @Override
+                    public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+                        return nativeCallback.onPrepareActionMode(mode, menu);
+                    }
+
+                    @Override
+                    public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+                        return nativeCallback.onActionItemClicked(mode, item);
+                    }
+
+                    @Override
+                    public void onDestroyActionMode(ActionMode mode) {
+                        nativeCallback.onDestroyActionMode(mode);
+                    }
+
+                    @Override
+                    public void onGetContentRect(ActionMode mode, View view, Rect rect) {
+                        nativeCallback.onGetContentRect(mode, view, rect);
+                        if (rect.bottom > 0 && rect.top < dp(64)) {
+                            // Place the native menu below top-edge selections, clear of the app bar.
+                            int firstLineBottom = Math.min(rect.bottom, rect.top + dp(48));
+                            rect.top = Math.min(Math.max(dp(96), firstLineBottom + dp(64)),
+                                    view.getHeight() - 1);
+                            rect.bottom = Math.max(rect.bottom, rect.top);
+                        }
+                    }
+                }, type);
+            }
+        };
         editor.setGravity(Gravity.TOP | Gravity.START);
         editor.setPadding(dp(16), dp(12), dp(16), dp(16));
         editor.setBackgroundColor(Color.TRANSPARENT);
