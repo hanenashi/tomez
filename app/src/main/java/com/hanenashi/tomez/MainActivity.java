@@ -10,6 +10,9 @@ import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Color;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
@@ -23,6 +26,7 @@ import android.provider.OpenableColumns;
 import android.provider.DocumentsContract;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.Layout;
 import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.TextUtils;
@@ -371,6 +375,39 @@ public class MainActivity extends Activity {
         documentScroll.setScrollBarFadeDuration(350);
 
         editor = new EditText(this) {
+            private final Path markedSelection = new Path();
+            private final Paint markedSelectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+            @Override
+            protected void onDraw(Canvas canvas) {
+                super.onDraw(canvas);
+                int start = Math.min(getSelectionStart(), getSelectionEnd());
+                int end = Math.max(getSelectionStart(), getSelectionEnd());
+                Layout layout = getLayout();
+                if (start < 0 || end <= start || layout == null) return;
+
+                Editable text = getText();
+                ChangeMark[] marks = text.getSpans(start, end, ChangeMark.class);
+                if (marks.length == 0) return;
+
+                markedSelectionPaint.setColor(getHighlightColor());
+                int saved = canvas.save();
+                canvas.clipRect(getCompoundPaddingLeft() + getScrollX(),
+                        getExtendedPaddingTop() + getScrollY(),
+                        getWidth() - getCompoundPaddingRight() + getScrollX(),
+                        getHeight() - getExtendedPaddingBottom() + getScrollY());
+                canvas.translate(getCompoundPaddingLeft(), getExtendedPaddingTop());
+                for (ChangeMark mark : marks) {
+                    int from = Math.max(start, text.getSpanStart(mark));
+                    int to = Math.min(end, text.getSpanEnd(mark));
+                    if (from >= to) continue;
+                    markedSelection.rewind();
+                    layout.getSelectionPath(from, to, markedSelection);
+                    canvas.drawPath(markedSelection, markedSelectionPaint);
+                }
+                canvas.restoreToCount(saved);
+            }
+
             @Override
             public ActionMode startActionMode(ActionMode.Callback callback, int type) {
                 if (type != ActionMode.TYPE_FLOATING || !(callback instanceof ActionMode.Callback2))
