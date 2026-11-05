@@ -21,7 +21,9 @@ A small native Android plaintext editor written in Java with Android Views and n
 - A fullscreen toggle; appearance and fullscreen choices saved across launches
 - One native EditText for reading and editing, inside platform scroll containers for vertical and unwrapped horizontal flings and edge feedback, with a thin fading vertical scrollbar; swiping text or blank space pans the document without opening the keyboard
 - Tap the pencil button to show or hide the keyboard; native cursor, selection, copy/paste, and undo remain available
-- Tap the line-wrap icon between the pencil and menu to switch between wrapped lines and horizontal scrolling; the choice is remembered
+- Tap the ± button for change controls: added text is green, selected text marked for deletion is red and struck through, and Clear mark reverses either mark
+- Save and Save As apply those marks to plain text; Export diff writes a separate unified `.diff` file without changing the open document
+- Tap the line-wrap icon beside the pencil to switch between wrapped lines and horizontal scrolling; the choice is remembered
 - Rotating the screen keeps the current document, cursor, and scroll position
 - Filename and unsaved marker in the toolbar; tap or long-press it for the full location in a matching panel
 - Current font, size, and theme shown in the menu; matching compact font, theme, and text-size dialogs

@@ -23,8 +23,11 @@ import android.provider.OpenableColumns;
 import android.provider.DocumentsContract;
 import android.text.Editable;
 import android.text.InputType;
-import android.text.TextWatcher;
+import android.text.Spanned;
+import android.text.TextPaint;
 import android.text.TextUtils;
+import android.text.TextWatcher;
+import android.text.style.CharacterStyle;
 import android.util.AtomicFile;
 import android.view.ActionMode;
 import android.view.Gravity;
@@ -61,14 +64,18 @@ import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
     private static final int OPEN_DOCUMENT = 1;
     private static final int CREATE_DOCUMENT = 2;
+    private static final int EXPORT_DIFF = 3;
     private static final int MAX_OPEN_BYTES = 1024 * 1024;
-    private static final int DRAFT_VERSION = 2;
+    private static final int DRAFT_VERSION = 3;
+    private static final int MARK_DELETE = 0x746d646c;
+    private static final int MARK_CLEAR = 0x746d636c;
     private static final long DRAFT_DELAY_MS = 1000;
 
     private static final int FONT_SANS = 10;
@@ -93,7 +100,12 @@ public class MainActivity extends Activity {
     private TextView title;
     private ImageButton pencilButton;
     private ImageButton wrapButton;
+    private ImageButton reviewButton;
     private ImageButton menuButton;
+    private LinearLayout reviewBar;
+    private TextView addButton;
+    private TextView deleteButton;
+    private TextView clearButton;
     private View toolbar;
     private View divider;
     private LinearLayout root;
@@ -108,6 +120,12 @@ public class MainActivity extends Activity {
     private boolean suppressChanges;
     private boolean busy;
     private boolean keyboardRequestPending;
+    private boolean reviewActive;
+    private boolean addMode;
+    private int addedBackground;
+    private int deletedBackground;
+    private int pendingAddStart = -1;
+    private int pendingAddCount;
     private int menuSurface;
     private int menuForeground;
     private int menuMuted;
@@ -242,6 +260,17 @@ public class MainActivity extends Activity {
         wrapButton.setOnClickListener(view -> toggleLineWrapping());
         toolbarRow.addView(wrapButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
 
+        reviewButton = new ImageButton(this);
+        reviewButton.setImageResource(R.drawable.ic_diff);
+        reviewButton.setPadding(dp(12), dp(12), dp(12), dp(12));
+        reviewButton.setBackgroundColor(Color.TRANSPARENT);
+        reviewButton.setOnClickListener(view -> {
+            reviewActive = !reviewActive;
+            addMode = reviewActive;
+            updateReviewUi();
+        });
+        toolbarRow.addView(reviewButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
+
         menuButton = new ImageButton(this);
         menuButton.setImageResource(R.drawable.ic_more_vert);
         menuButton.setPadding(dp(12), dp(12), dp(12), dp(12));
@@ -250,6 +279,50 @@ public class MainActivity extends Activity {
         menuButton.setOnClickListener(view -> showMenu());
         toolbarRow.addView(menuButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
         root.addView(toolbarRow);
+
+        reviewBar = new LinearLayout(this);
+        reviewBar.setGravity(Gravity.CENTER_VERTICAL);
+        reviewBar.setPadding(dp(12), 0, dp(12), 0);
+        final int[] selected = {-1, -1};
+        View.OnTouchListener captureSelection = (view, event) -> {
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                selected[0] = editor.getSelectionStart();
+                selected[1] = editor.getSelectionEnd();
+            }
+            return false;
+        };
+        addButton = new TextView(this);
+        addButton.setText("+ Add text");
+        addButton.setTextSize(14);
+        addButton.setGravity(Gravity.CENTER);
+        addButton.setOnClickListener(view -> {
+            addMode = true;
+            updateReviewUi();
+            showKeyboard();
+        });
+        reviewBar.addView(addButton, new LinearLayout.LayoutParams(0, dp(48), 1));
+        deleteButton = new TextView(this);
+        deleteButton.setText("− Delete");
+        deleteButton.setTextSize(14);
+        deleteButton.setGravity(Gravity.CENTER);
+        deleteButton.setOnTouchListener(captureSelection);
+        deleteButton.setOnClickListener(view -> {
+            markSelectedForDeletion(selected[0], selected[1]);
+            selected[0] = selected[1] = -1;
+        });
+        reviewBar.addView(deleteButton, new LinearLayout.LayoutParams(0, dp(48), 1));
+        clearButton = new TextView(this);
+        clearButton.setText("Clear mark");
+        clearButton.setTextSize(14);
+        clearButton.setGravity(Gravity.CENTER);
+        clearButton.setOnTouchListener(captureSelection);
+        clearButton.setOnClickListener(view -> {
+            clearSelectedMark(selected[0], selected[1]);
+            selected[0] = selected[1] = -1;
+        });
+        reviewBar.addView(clearButton, new LinearLayout.LayoutParams(0, dp(48), 1));
+        reviewBar.setVisibility(View.GONE);
+        root.addView(reviewBar);
 
         divider = new View(this);
         root.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
@@ -307,7 +380,14 @@ public class MainActivity extends Activity {
                 return super.startActionMode(new ActionMode.Callback2() {
                     @Override
                     public boolean onCreateActionMode(ActionMode mode, Menu menu) {
-                        return nativeCallback.onCreateActionMode(mode, menu);
+                        if (!nativeCallback.onCreateActionMode(mode, menu)) return false;
+                        if (reviewActive && editor.hasSelection())
+                            menu.add(Menu.NONE, MARK_DELETE, Menu.NONE, "Mark −")
+                                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+                        if (reviewActive && editor.hasSelection())
+                            menu.add(Menu.NONE, MARK_CLEAR, Menu.NONE, "Clear mark")
+                                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+                        return true;
                     }
 
                     @Override
@@ -317,6 +397,16 @@ public class MainActivity extends Activity {
 
                     @Override
                     public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+                        if (item.getItemId() == MARK_DELETE) {
+                            markSelectedForDeletion(editor.getSelectionStart(), editor.getSelectionEnd());
+                            mode.finish();
+                            return true;
+                        }
+                        if (item.getItemId() == MARK_CLEAR) {
+                            clearSelectedMark(editor.getSelectionStart(), editor.getSelectionEnd());
+                            mode.finish();
+                            return true;
+                        }
                         return nativeCallback.onActionItemClicked(mode, item);
                     }
 
@@ -351,13 +441,19 @@ public class MainActivity extends Activity {
         editor.setHint("Start typing…");
         editor.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                pendingAddStart = !suppressChanges && reviewActive && addMode && count > 0
+                        ? start : -1;
+                pendingAddCount = count;
+            }
             @Override public void afterTextChanged(Editable text) {
                 if (suppressChanges) return;
-                dirty = !savedText.contentEquals(text);
+                if (pendingAddStart >= 0)
+                    markRange(text, pendingAddStart, pendingAddStart + pendingAddCount, false);
+                pendingAddStart = -1;
+                dirty = hasChanges();
                 updateTitle();
-                mainHandler.removeCallbacks(updateDraft);
-                mainHandler.postDelayed(updateDraft, DRAFT_DELAY_MS);
+                queueDraft();
             }
         });
         horizontalScroll.addView(editor, new HorizontalScrollView.LayoutParams(-2, -1));
@@ -408,6 +504,7 @@ public class MainActivity extends Activity {
         fileAction(files, "Save", dialog, () -> save(null));
         fileAction(files, "Save As", dialog, this::launchCreate);
         fileAction(files, "Close", dialog, () -> confirmDiscard(this::closeDocument));
+        settingRow(panel, "Export diff", ".diff", dialog, this::launchExportDiff);
 
         menuDivider(panel);
         int font = preferences.getInt("font", FONT_SANS);
@@ -743,15 +840,24 @@ public class MainActivity extends Activity {
         menuMuted = muted;
         menuLine = line;
         menuAccent = theme == THEME_TOMEZ ? Color.rgb(170, 43, 47) : accent;
+        boolean darkMarks = theme == THEME_DARK || theme == THEME_GREEN;
+        addedBackground = darkMarks ? Color.rgb(29, 85, 53) : Color.rgb(198, 236, 202);
+        deletedBackground = darkMarks ? Color.rgb(103, 43, 48) : Color.rgb(248, 202, 197);
         toolbar.setBackgroundColor(theme == THEME_TOMEZ ? Color.rgb(247, 202, 57) : surface);
+        reviewBar.setBackgroundColor(surface);
+        addButton.setTextColor(darkMarks ? Color.rgb(175, 246, 183) : Color.rgb(25, 99, 49));
+        deleteButton.setTextColor(darkMarks ? Color.rgb(255, 176, 166) : Color.rgb(154, 42, 47));
+        clearButton.setTextColor(muted);
         divider.setBackgroundColor(line);
         title.setTextColor(foreground);
         pencilButton.setImageTintList(ColorStateList.valueOf(foreground));
         updateWrapButton();
+        updateReviewUi();
         menuButton.setImageTintList(ColorStateList.valueOf(foreground));
         editor.setTextColor(foreground);
         editor.setHintTextColor(muted);
         editor.setHighlightColor(Color.argb(90, Color.red(accent), Color.green(accent), Color.blue(accent)));
+        editor.invalidate();
         if (Build.VERSION.SDK_INT >= 29) {
             documentScroll.setEdgeEffectColor(accent);
             horizontalScroll.setEdgeEffectColor(accent);
@@ -885,15 +991,34 @@ public class MainActivity extends Activity {
         startActivityForResult(intent, CREATE_DOCUMENT);
     }
 
+    private void launchExportDiff() {
+        if (savedText.equals(bakedText())) {
+            Toast.makeText(this, "No changes to export.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.setType("text/plain");
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.putExtra(Intent.EXTRA_TITLE,
+                (documentUri == null ? "Untitled.txt" : documentName) + ".diff");
+        intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        startActivityForResult(intent, EXPORT_DIFF);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != OPEN_DOCUMENT && requestCode != CREATE_DOCUMENT) return;
+        if (requestCode != OPEN_DOCUMENT && requestCode != CREATE_DOCUMENT
+                && requestCode != EXPORT_DIFF) return;
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
             if (requestCode == CREATE_DOCUMENT) afterSave = null;
             return;
         }
         Uri uri = data.getData();
+        if (requestCode == EXPORT_DIFF) {
+            exportDiff(uri);
+            return;
+        }
         persistPermission(uri, data.getFlags());
         if (requestCode == OPEN_DOCUMENT) open(uri);
         else write(uri);
@@ -966,8 +1091,61 @@ public class MainActivity extends Activity {
         else write(documentUri);
     }
 
+    private String bakedText() {
+        Editable text = editor.getText();
+        ChangeMark[] marks = text.getSpans(0, text.length(), ChangeMark.class);
+        Arrays.sort(marks, (a, b) -> Integer.compare(text.getSpanStart(a), text.getSpanStart(b)));
+        StringBuilder result = new StringBuilder(text.length());
+        int from = 0;
+        for (ChangeMark mark : marks) {
+            if (!mark.deleted) continue;
+            int start = text.getSpanStart(mark);
+            int end = text.getSpanEnd(mark);
+            if (start < 0 || end <= from) continue;
+            if (start > from) result.append(text, from, start);
+            from = Math.max(from, end);
+        }
+        result.append(text, from, text.length());
+        return result.toString();
+    }
+
+    private void commitMarks(String baked) {
+        Editable text = editor.getText();
+        ChangeMark[] marks = text.getSpans(0, text.length(), ChangeMark.class);
+        Arrays.sort(marks, (a, b) -> Integer.compare(text.getSpanStart(a), text.getSpanStart(b)));
+        int[][] cuts = new int[marks.length][2];
+        int count = 0;
+        for (ChangeMark mark : marks) {
+            if (!mark.deleted) continue;
+            int start = text.getSpanStart(mark);
+            int end = text.getSpanEnd(mark);
+            if (start < 0 || end <= start) continue;
+            if (count > 0 && start <= cuts[count - 1][1])
+                cuts[count - 1][1] = Math.max(cuts[count - 1][1], end);
+            else {
+                cuts[count][0] = start;
+                cuts[count++][1] = end;
+            }
+        }
+        suppressChanges = true;
+        try {
+            for (ChangeMark mark : marks) text.removeSpan(mark);
+            for (int i = count - 1; i >= 0; i--)
+                text.delete(cuts[i][0], cuts[i][1]);
+            if (!baked.contentEquals(text)) editor.setText(baked);
+        } finally {
+            suppressChanges = false;
+        }
+        savedText = baked;
+        reviewActive = false;
+        addMode = false;
+        updateReviewUi();
+        dirty = hasChanges();
+        updateTitle();
+    }
+
     private void write(Uri uri) {
-        String text = editor.getText().toString();
+        String text = bakedText();
         boolean bom = hasBom;
         setBusy(true);
         io.execute(() -> {
@@ -1004,14 +1182,37 @@ public class MainActivity extends Activity {
                 documentUri = uri;
                 documentName = queryName(uri, "Untitled.txt");
                 documentPath = queryPath(uri, documentName);
-                savedText = text;
-                dirty = !savedText.contentEquals(editor.getText());
-                updateTitle();
+                commitMarks(text);
                 mainHandler.removeCallbacks(updateDraft);
                 clearDraft();
                 Runnable next = afterSave;
                 afterSave = null;
                 if (next != null) next.run();
+            });
+        });
+    }
+
+    private void exportDiff(Uri uri) {
+        String patch = DiffPatch.create(documentUri == null ? null : documentName,
+                savedText, bakedText());
+        setBusy(true);
+        io.execute(() -> {
+            try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
+                if (output == null) throw new IOException("The document provider did not accept the file.");
+                output.write(patch.getBytes(StandardCharsets.UTF_8));
+                output.flush();
+                // Closing the stream is part of a successful export.
+                // Keep the current document and its pending marks untouched.
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    setBusy(false);
+                    showError("Could not export diff", error);
+                });
+                return;
+            }
+            runOnUiThread(() -> {
+                setBusy(false);
+                Toast.makeText(this, "Diff exported.", Toast.LENGTH_SHORT).show();
             });
         });
     }
@@ -1064,6 +1265,9 @@ public class MainActivity extends Activity {
 
     private void setEditorText(String text) {
         suppressChanges = true;
+        reviewActive = false;
+        addMode = false;
+        pendingAddStart = -1;
         editor.setText(text);
         editor.setSelection(0);
         documentScroll.scrollTo(0, 0);
@@ -1071,6 +1275,7 @@ public class MainActivity extends Activity {
         suppressChanges = false;
         savedText = text;
         dirty = false;
+        updateReviewUi();
         updateTitle();
     }
 
@@ -1079,6 +1284,10 @@ public class MainActivity extends Activity {
         editor.setEnabled(!value);
         pencilButton.setEnabled(!value);
         wrapButton.setEnabled(!value);
+        reviewButton.setEnabled(!value);
+        addButton.setEnabled(!value);
+        deleteButton.setEnabled(!value);
+        clearButton.setEnabled(!value);
         menuButton.setEnabled(!value);
     }
 
@@ -1097,6 +1306,99 @@ public class MainActivity extends Activity {
         wrapButton.setContentDescription(wrap
                 ? "Line wrapping on. Tap to turn off"
                 : "Line wrapping off. Tap to turn on");
+    }
+
+    private void updateReviewUi() {
+        reviewBar.setVisibility(reviewActive ? View.VISIBLE : View.GONE);
+        reviewButton.setImageTintList(ColorStateList.valueOf(reviewActive ? menuAccent : menuForeground));
+        reviewButton.setContentDescription(reviewActive
+                ? "Hide change controls" : "Show change controls");
+        addButton.setBackgroundColor(reviewActive && addMode ? addedBackground : Color.TRANSPARENT);
+    }
+
+    private int[] reviewSelection(int start, int end) {
+        if (start < 0 || end < 0 || start == end) {
+            start = editor.getSelectionStart();
+            end = editor.getSelectionEnd();
+        }
+        return new int[]{Math.min(start, end), Math.max(start, end)};
+    }
+
+    private void markSelectedForDeletion(int selectedStart, int selectedEnd) {
+        int[] range = reviewSelection(selectedStart, selectedEnd);
+        if (range[0] < 0 || range[0] == range[1]) {
+            Toast.makeText(this, "Select text to mark for deletion.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        markRange(editor.getText(), range[0], range[1], true);
+        editor.setSelection(range[1]);
+        addMode = false;
+        updateReviewUi();
+        marksChanged();
+    }
+
+    private void clearSelectedMark(int selectedStart, int selectedEnd) {
+        int[] range = reviewSelection(selectedStart, selectedEnd);
+        if (range[0] < 0 || range[0] == range[1]) {
+            Toast.makeText(this, "Select marked text to clear.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Editable text = editor.getText();
+        boolean changed = false;
+        for (ChangeMark mark : text.getSpans(range[0], range[1], ChangeMark.class)) {
+            int from = text.getSpanStart(mark);
+            int to = text.getSpanEnd(mark);
+            if (from >= range[1] || to <= range[0]) continue;
+            text.removeSpan(mark);
+            if (from < range[0]) text.setSpan(new ChangeMark(mark.deleted), from, range[0],
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            if (to > range[1]) text.setSpan(new ChangeMark(mark.deleted), range[1], to,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            changed = true;
+        }
+        if (changed) {
+            editor.setSelection(range[1]);
+            marksChanged();
+        } else Toast.makeText(this, "No mark in selection.", Toast.LENGTH_SHORT).show();
+    }
+
+    private void marksChanged() {
+        dirty = hasChanges();
+        updateTitle();
+        queueDraft();
+        editor.invalidate();
+    }
+
+    private void markRange(Editable text, int start, int end, boolean deleted) {
+        for (ChangeMark mark : text.getSpans(Math.max(0, start - 1),
+                Math.min(text.length(), end + 1), ChangeMark.class)) {
+            int from = text.getSpanStart(mark);
+            int to = text.getSpanEnd(mark);
+            if (from > end || to < start) continue;
+            if (mark.deleted != deleted && (to <= start || from >= end)) continue;
+            text.removeSpan(mark);
+            if (mark.deleted == deleted) {
+                start = Math.min(start, from);
+                end = Math.max(end, to);
+            } else {
+                if (from < start) text.setSpan(new ChangeMark(mark.deleted), from, start,
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                if (to > end) text.setSpan(new ChangeMark(mark.deleted), end, to,
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+        }
+        text.setSpan(new ChangeMark(deleted), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+    }
+
+    private boolean hasChanges() {
+        Editable text = editor.getText();
+        return !savedText.contentEquals(text)
+                || text.getSpans(0, text.length(), ChangeMark.class).length > 0;
+    }
+
+    private void queueDraft() {
+        mainHandler.removeCallbacks(updateDraft);
+        mainHandler.postDelayed(updateDraft, DRAFT_DELAY_MS);
     }
 
     private void updateTitle() {
@@ -1181,6 +1483,14 @@ public class MainActivity extends Activity {
             byte[] baseline = savedText.getBytes(StandardCharsets.UTF_8);
             data.writeInt(baseline.length);
             data.write(baseline);
+            Editable marked = editor.getText();
+            ChangeMark[] marks = marked.getSpans(0, marked.length(), ChangeMark.class);
+            data.writeInt(marks.length);
+            for (ChangeMark mark : marks) {
+                data.writeBoolean(mark.deleted);
+                data.writeInt(marked.getSpanStart(mark));
+                data.writeInt(marked.getSpanEnd(mark));
+            }
             data.flush();
             draftFile.finishWrite(stream);
         } catch (IOException error) {
@@ -1190,7 +1500,9 @@ public class MainActivity extends Activity {
 
     private void restoreDraft() {
         try (DataInputStream data = new DataInputStream(draftFile.openRead())) {
-            if (data.readInt() != DRAFT_VERSION) throw new IOException("Unknown draft version");
+            int version = data.readInt();
+            if (version != 2 && version != DRAFT_VERSION)
+                throw new IOException("Unknown draft version");
             String uri = data.readUTF();
             String name = data.readUTF();
             boolean bom = data.readBoolean();
@@ -1209,7 +1521,24 @@ public class MainActivity extends Activity {
             hasBom = bom;
             setEditorText(new String(bytes, StandardCharsets.UTF_8));
             savedText = new String(baseline, StandardCharsets.UTF_8);
-            dirty = !savedText.contentEquals(editor.getText());
+            if (version >= 3) {
+                Editable marked = editor.getText();
+                int count = data.readInt();
+                if (count < 0 || count > MAX_OPEN_BYTES)
+                    throw new IOException("Invalid draft mark count");
+                for (int i = 0; i < count; i++) {
+                    boolean deleted = data.readBoolean();
+                    int start = data.readInt();
+                    int end = data.readInt();
+                    if (start < 0 || end > marked.length() || start >= end)
+                        throw new IOException("Invalid draft mark");
+                    marked.setSpan(new ChangeMark(deleted), start, end,
+                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                }
+                reviewActive = count > 0;
+                updateReviewUi();
+            }
+            dirty = hasChanges();
         } catch (IOException error) {
             clearDraft();
         }
@@ -1221,6 +1550,20 @@ public class MainActivity extends Activity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private final class ChangeMark extends CharacterStyle {
+        final boolean deleted;
+
+        ChangeMark(boolean deleted) {
+            this.deleted = deleted;
+        }
+
+        @Override
+        public void updateDrawState(TextPaint paint) {
+            paint.bgColor = deleted ? deletedBackground : addedBackground;
+            if (deleted) paint.setStrikeThruText(true);
+        }
     }
 
     private static class OpenedDocument {
