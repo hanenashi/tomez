@@ -856,7 +856,8 @@ public class MainActivity extends Activity {
         menuButton.setImageTintList(ColorStateList.valueOf(foreground));
         editor.setTextColor(foreground);
         editor.setHintTextColor(muted);
-        editor.setHighlightColor(Color.argb(90, Color.red(accent), Color.green(accent), Color.blue(accent)));
+        // Selection stays visually separate from green additions and red deletions.
+        editor.setHighlightColor(Color.argb(darkMarks ? 150 : 120, 102, 91, 218));
         editor.invalidate();
         if (Build.VERSION.SDK_INT >= 29) {
             documentScroll.setEdgeEffectColor(accent);
